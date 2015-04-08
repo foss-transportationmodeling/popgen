@@ -1,5 +1,5 @@
 =============================
-Synthetic Population Generator .20
+Synthetic Population Generator 2.0
 =============================
 
 .. image:: https://badge.fury.io/py/popgen.png

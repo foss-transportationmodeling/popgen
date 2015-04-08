@@ -28,7 +28,7 @@ setup(
     long_description=readme + '\n\n' + doclink + '\n\n' + history,
     author='Karthik Konduri',
     author_email='karthik.charan@gmail.com',
-    url='https://github.com/karthikcharan83/popgen',
+    url='https://github.com/foss-transportationmodeling/popgen',
     packages=[
         'popgen',
     ],
@@ -36,19 +36,14 @@ setup(
     include_package_data=True,
     install_requires=[
     ],
-    license='MIT',
+    license='Apache License 2.0',
     zip_safe=False,
     keywords='popgen',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: Apache License 2.0',
         'Natural Language :: English',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: Implementation :: PyPy',
     ],
 )
