@@ -32,10 +32,18 @@ class Reweighting_DS(object):
             return None
         elif len(sample_restruct_list) == 1:
             return sample_restruct_list[0]
+
         stacked_sample = sample_restruct_list[0]
         for i, sample_restruct in enumerate(sample_restruct_list[1:]):
-            stacked_sample = stacked_sample.join(sample_restruct,
-                                                 how="outer").fillna(0)
+            len_left_frame_index = len(stacked_sample.columns.values[0])
+            len_right_frame_index = len(sample_restruct.columns.values[0])
+
+            if len_left_frame_index >= len_right_frame_index:
+                stacked_sample = stacked_sample.join(sample_restruct,
+                                                     how="outer").fillna(0)
+            else:
+                stacked_sample = sample_restruct.join(stacked_sample,
+                                                      how="outer").fillna(0)
         stacked_sample.sort(inplace=True)  # Sort by row indices
         stacked_sample.sort_index(axis=1,
                                   inplace=True)  # Sort columns alphabetically
@@ -102,9 +110,10 @@ class Run_IPU(object):
             #print "Outer iterations", self.outer_iterations
             for iter in range(self.outer_iterations):
                 #print "Region: %s and Iter: %s" % (region_id, iter)
-                sample_weights = (self._adjust_sample_weights(
-                                  sample_weights,
-                                  region_constraints.loc[region_id]))
+                if region_constraints is not None:
+                    sample_weights = (self._adjust_sample_weights(
+                                      sample_weights,
+                                      region_constraints.loc[region_id]))
                 #print "After region:", sample_weights[:, :4]
 
                 for index, geo_id in enumerate(geo_ids):

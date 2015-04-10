@@ -193,6 +193,10 @@ class Run_IPF(object):
             sample = self.db.sample[entity]
             marginals = marginals_at_resolution[entity]
             variable_names = control_variables_config[entity].return_list()
+
+            if len(variable_names) == 0:
+                continue
+
             variables_cats = (self.db.return_variables_cats(entity,
                                                             variable_names))
             variables_count = len(variable_names)
@@ -292,11 +296,19 @@ class Run_IPF(object):
         return ipf_results
 
     def _get_stacked_constraints(self, constraints_list):
-        if len(constraints_list) == 1:
+        if len(constraints_list) == 0:
+            return None
+        elif len(constraints_list) == 1:
             return constraints_list[0].T
         stacked_constraints = constraints_list[0].T
         for constraint in constraints_list[1:]:
-            stacked_constraints = stacked_constraints.join(constraint.T)
+            len_left_frame_index = len(stacked_constraints.columns.values[0])
+            len_right_frame_index = len(constraint.T.columns.values[0])
+
+            if len_left_frame_index >= len_right_frame_index:
+                stacked_constraints = stacked_constraints.join(constraint.T)
+            else:
+                stacked_constraints = constraint.T.join(stacked_constraints)
         stacked_constraints.sort_index(axis=1, inplace=True)
         return stacked_constraints
 

@@ -53,7 +53,7 @@ class Draw_Population(object):
                                                        geo_id_rows_syn, iter,
                                                        stat, False)
             #print "Max found:", max_found, geo_id_frequencies.sum()
-            #print "Max iter: %d, %f, %f" % (iter_max, p_value_max, stat_max)
+            print "Max iter: %d, %f, %f" % (iter_max, p_value_max, stat_max)
             self.syn_population.add_records_for_geo_id(
                 geo_id, geo_id_rows_syn_max)
 
