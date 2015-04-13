@@ -2,6 +2,8 @@ import logging
 import os
 import time
 
+import yaml
+
 from config import Config
 from data import DB
 from ipf import Run_IPF
@@ -130,7 +132,6 @@ def popgen_run(project_config):
     pass
 
 if __name__ == "__main__":
-    import yaml
     import time
     from config import Config
     from data import DB

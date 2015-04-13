@@ -53,7 +53,7 @@ class Draw_Population(object):
                                                        geo_id_rows_syn, iter,
                                                        stat, False)
             #print "Max found:", max_found, geo_id_frequencies.sum()
-            print "Max iter: %d, %f, %f" % (iter_max, p_value_max, stat_max)
+            #print "Max iter: %d, %f, %f" % (iter_max, p_value_max, stat_max)
             self.syn_population.add_records_for_geo_id(
                 geo_id, geo_id_rows_syn_max)
 
@@ -87,11 +87,12 @@ class Draw_Population(object):
     def _measure_match(self, geo_id_rows_syn, geo_id_constraints,
                        over_columns=None):
 
+        geo_id_constraints.name = "constraint"
         geo_id_synthetic = self.geo_stacked.take(geo_id_rows_syn).sum()
         geo_id_synthetic = pd.DataFrame(geo_id_synthetic,
                                         columns=["synthetic_count"])
-        geo_id_synthetic["constraint"] = geo_id_constraints
-
+        geo_id_synthetic = (
+            geo_id_synthetic.join(geo_id_constraints, how="inner"))
         stat, p_value = stats.chisquare(geo_id_synthetic["synthetic_count"],
                                         geo_id_synthetic["constraint"])
         return stat, p_value
