@@ -277,10 +277,25 @@ class Run_IPF(object):
             print "\tIPF for Geo: %s for Entity: %s" % (geo_id, entity)
             sample_geo_id = geo_corr_to_sample.loc[geo_id,
                                                    self.sample_geo_name]
-            if sample_geo_id > 0:
-                seed_for_geo_id = seed_geo.loc[sample_geo_id].copy()
+            if isinstance(sample_geo_id, pd.Series):
+                seed_geo_levels_list = range(len(seed_geo.index.names))
+                seed_for_geo_id = (seed_geo.loc[sample_geo_id.tolist()]
+                                   .sum(level=seed_geo_levels_list[1:]))
+                #print (seed_geo.loc[sample_geo_id.tolist()])
+                #print sample_geo_id.tolist(), "Satisfied series check"
+            #if sample_geo_id.shape[0] >= 1:
+            elif sample_geo_id > 0:
+                seed_for_geo_id = seed_geo.loc[sample_geo_id.tolist()]
+                #print sample_geo_id.tolist(), "Satisfied valid value check"
+            elif sample_geo_id == -1:
+                seed_for_geo_id = seed_all.copy()
+                #print sample_geo_id.tolist(), "Satisfied default value check"
             else:
-                seed_for_geo_id = seed_all
+                raise Exception("Not series nor is it default value of -1")
+            #print seed_for_geo_id
+            #print "This is the sample geo id"
+            #raw_input()
+
             marginals_geo = marginals.loc[geo_id]
             ipf_obj_geo = IPF(seed_all, seed_for_geo_id, row_idx,
                               marginals_geo, self.ipf_config,
