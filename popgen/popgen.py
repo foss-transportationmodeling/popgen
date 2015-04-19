@@ -137,7 +137,7 @@ if __name__ == "__main__":
     from data import DB
 
     t = time.time()
-    p_obj = Project("../demo/bmc_taz/configuration.yaml")
+    p_obj = Project("../demo/bmc/configuration.yaml")
     p_obj.load_project()
     p_obj.run_scenarios()
     print "Time it took: %.4f" % (time.time() - t)
