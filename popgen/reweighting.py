@@ -47,6 +47,8 @@ class Reweighting_DS(object):
         stacked_sample.sort(inplace=True)  # Sort by row indices
         stacked_sample.sort_index(axis=1,
                                   inplace=True)  # Sort columns alphabetically
+        stacked_sample.columns = pd.Index(stacked_sample.columns,
+                                          tuplelize_cols=False)
         return stacked_sample
 
 

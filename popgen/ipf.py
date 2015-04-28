@@ -325,6 +325,9 @@ class Run_IPF(object):
             else:
                 stacked_constraints = constraint.T.join(stacked_constraints)
         stacked_constraints.sort_index(axis=1, inplace=True)
+
+        stacked_constraints.columns = pd.Index(stacked_constraints.columns,
+                                               tuplelize_cols=False)
         return stacked_constraints
 
     def _get_columns_constraints_dict(self, constraints_dict):
