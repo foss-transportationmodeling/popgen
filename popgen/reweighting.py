@@ -125,7 +125,11 @@ class Run_IPU(object):
                                                 geo_constraints.loc[geo_id],
                                                 iters=self.inner_iterations,
                                                 geo=True))
-                #print "After geo:", sample_weights[:, :4]
+                    #print "After geo:", sample_weights[:, :4]
+                    #print ("sample_weights sum:", sample_weights.sum(),
+                    #       sample_weights[:, index].sum())
+            if pd.isnull(sample_weights.sum()).any():
+                raw_input("Weights array has an invalid value.")
 
             self._populate_sample_weights(sample_weights, region_id, geo_ids)
             print "sample_weights sum:", sample_weights.sum()
@@ -152,6 +156,10 @@ class Run_IPU(object):
                     weighted_sum = sample_weights.dot(contrib[column])
                 adjustment = constraints[column]/weighted_sum
                 sample_weights[row_idx[column]] *= adjustment
+                #if pd.isnull(sample_weights).any():
+                #    print constraints
+                #    print column, constraints[column], weighted_sum, adjustment
+                #    raw_input()
         return sample_weights
 
     def _populate_sample_weights(self, sample_weights, region_id, geo_ids):

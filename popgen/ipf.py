@@ -74,9 +74,9 @@ class IPF(object):
             #print self.seed_all["prob"]
 
             #raise Exception("Need to correct for zero cells")
-            return self.seed_all["prob"].values
+            return self.seed_all["prob"].copy().values
         else:
-            return self.seed["frequency"].values
+            return self.seed["frequency"].copy().values
 
     def run_ipf(self):
         self.frequencies = self.correct_zero_cell_issue()
@@ -89,6 +89,10 @@ class IPF(object):
                     #print "Convergence achieved in %d iter" % (c_iter)
                     break
         #self.seed["frequency"] = self.frequencies
+        #if (self.frequencies == 0).any():
+        #    print self.seed_all
+        #    print self.frequencies
+        #    raw_input("constraint is zero")
         return self.frequencies
 
     def adjust_cell_frequencies(self):
