@@ -82,11 +82,12 @@ class IPF(object):
         self.frequencies = self.correct_zero_cell_issue()
         #self.frequencies = self.seed["frequency"].values
         for c_iter in xrange(self.ipf_iters):
-            adjustment_mean = self.adjust_cell_frequencies()
+            #print "Iter:", c_iter
+            self.adjust_cell_frequencies()
             #Checks for convergence every 5 iterations
-            if (c_iter % 5) == 0:
+            if (c_iter % 5) == 1:
                 if self.check_convergence():
-                    #print "Convergence achieved in %d iter" % (c_iter)
+                    #print "\t\t\tConvergence achieved in %d iter" % (c_iter)
                     break
         #self.seed["frequency"] = self.frequencies
         #if (self.frequencies == 0).any():
@@ -117,10 +118,13 @@ class IPF(object):
                     #raise Exception("Marginal is zero and needs correction")
                 adjustment = (marginal /
                               self.frequencies[row_subset].sum())
-                #if self.marginals.loc[(var, "%s" % cat)] == 0:
-                #    print adjustment, zero_marginal_adjustment
                 #    raw_input()
                 self.frequencies[row_subset] *= adjustment
+
+                if (self.frequencies == 0).any():
+                    cells_zero_values = self.frequencies == 0
+                    self.frequencies[cells_zero_values] = (
+                        np.finfo(np.float64).tiny)
 
     def check_convergence(self):
         average_diff = self.calculate_average_deviation()
@@ -131,6 +135,14 @@ class IPF(object):
                 return True
         return False
 
+    def print_marginals(self):
+        for var in self.variable_names:
+            for cat in self.variables_cats[var]:
+                row_subset = self.idx[(var, cat)]
+                adjusted_frequency = self.frequencies[row_subset].sum()
+                original_frequency = self.marginals.loc[(var, "%s" % cat)]
+                print "\t", (var, "%s" % cat), original_frequency, adjusted_frequency
+
     def calculate_average_deviation(self):
         diff_sum = 0
         for var in self.variable_names[:-1]:
@@ -139,8 +151,10 @@ class IPF(object):
                 adjusted_frequency = self.frequencies[row_subset].sum()
                 #TODO: See above to-do same fix here
                 original_frequency = self.marginals.loc[(var, "%s" % cat)]
-            diff_sum += np.abs(adjusted_frequency - original_frequency)
+            diff_sum += (np.abs(adjusted_frequency - original_frequency) /
+                         original_frequency)
         average_diff = diff_sum/self.variables_cats_count
+        #print "Average Deviation", average_diff
         return average_diff
 
 
@@ -308,6 +322,9 @@ class Run_IPF(object):
             #ipf_obj_geo.correct_zero_cell_issue()
             ipf_results_geo = ipf_obj_geo.run_ipf()
             ipf_results[geo_id] = ipf_results_geo
+            if (ipf_results[geo_id] == 0).any():
+                raise Exception("""IPF cell values of zero are returned. """
+                                """Needs troubleshooting""")
 
             #ipf_results[geo_id] = ipf_results_geo["frequency"]
             #raw_input("IPF for Geo: %s for Entity: %s complete"

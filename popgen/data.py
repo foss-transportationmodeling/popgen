@@ -70,6 +70,9 @@ class DB(object):
         region_to_geo = self.geo["region_to_geo"]
         self.region_ids = np.unique(region_to_geo.index.values)
 
+        #region_to_sample = self.geo["region_to_sample"]
+        #self.region_ids = np.unique(region_to_sample.index.values)
+
     def get_geo_ids_for_region(self, region_id):
         geo_name = self._inputs_config.column_names.geo
         return self.geo["region_to_geo"].loc[region_id, geo_name].copy()

@@ -13,8 +13,9 @@ from output import Syn_Population
 
 
 class Project(object):
-    """This is the primary class to setup and run PopGen projects. This accepts
-    a configuration file which is in a YAML format.
+    """This is the primary class to setup and run PopGen projects.
+
+
     """
     def __init__(self, config_loc):
         self._config_loc = config_loc
@@ -137,7 +138,7 @@ if __name__ == "__main__":
     from data import DB
 
     t = time.time()
-    p_obj = Project("../demo/bmc_taz/configuration.yaml")
+    p_obj = Project("../demo/bmc_taz_2012/configuration.yaml")
     p_obj.load_project()
     p_obj.run_scenarios()
     print "Time it took: %.4f" % (time.time() - t)
