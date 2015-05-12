@@ -235,13 +235,21 @@ class Syn_Population(object):
         t = time.time()
         synthetic_population_config = (
             self.scenario_config.outputs.synthetic_population)
+        sort_columns = [self.geo_name, self.hid_name]
         for entity_type in self.entity_types:
             (filename, filetype) = (
                 synthetic_population_config[entity_type].filename,
                 synthetic_population_config[entity_type].filetype)
             filepath = os.path.join(self.outputlocation, filename)
+            #self.pop_syn_data[entity_type].to_csv(
+            #    filepath, sep=self.filetype_sep_dict[filetype], index=False)
+            self.pop_syn_data[entity_type].sort(
+                sort_columns, inplace=True)
+            self.pop_syn_data[entity_type].reset_index(drop=True, inplace=True)
+            self.pop_syn_data[entity_type].index.name = (
+                "unique_%s_id" % entity_type)
             self.pop_syn_data[entity_type].to_csv(
-                filepath, sep=self.filetype_sep_dict[filetype], index=False)
+                filepath, sep=self.filetype_sep_dict[filetype])
         print "\tTime to write syn pop files is: %.4f" % (time.time() - t)
 
     def _return_aggregate_by_geo(self, variables, entity_type, entity):
