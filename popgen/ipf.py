@@ -55,6 +55,7 @@ class IPF(object):
         self.zero_marginal_correction = (
             self.ipf_config.zero_marginal_correction)
         self.average_diff_iters = []
+        self.iter_convergence = None
 
     def correct_zero_cell_issue(self):
         if self.seed.shape[0] != self.seed_all.shape[0]:
@@ -85,16 +86,22 @@ class IPF(object):
             #print "Iter:", c_iter
             self.adjust_cell_frequencies()
             #Checks for convergence every 5 iterations
-            if (c_iter % 5) == 1:
+
+            # TODO: In the future change the frequency at which
+            # performance measures are stored as a parameter that is
+            # specified by the user
+
+            if (c_iter % 2) == 0:
                 if self.check_convergence():
                     #print "\t\t\tConvergence achieved in %d iter" % (c_iter)
+                    self.iter_convergence = c_iter
                     break
         #self.seed["frequency"] = self.frequencies
         #if (self.frequencies == 0).any():
         #    print self.seed_all
         #    print self.frequencies
         #    raw_input("constraint is zero")
-        return self.frequencies
+        #return self.frequencies
 
     def adjust_cell_frequencies(self):
         for var in self.variable_names:
@@ -151,6 +158,8 @@ class IPF(object):
                 adjusted_frequency = self.frequencies[row_subset].sum()
                 #TODO: See above to-do same fix here
                 original_frequency = self.marginals.loc[(var, "%s" % cat)]
+                if original_frequency == 0:
+                    original_frequency = self.zero_marginal_correction
             diff_sum += (np.abs(adjusted_frequency - original_frequency) /
                          original_frequency)
         average_diff = diff_sum/self.variables_cats_count
@@ -176,10 +185,12 @@ class Run_IPF(object):
         region_ids = self.db.region_ids
         region_to_sample = self.db.geo["region_to_sample"]
         (self.region_constraints,
-         self.region_constraints_dict) = (self._run_ipf_for_resolution(
-                                          region_marginals,
-                                          region_controls_config,
-                                          region_ids, region_to_sample))
+         self.region_constraints_dict,
+         self.region_iters_convergence_dict,
+         self.region_average_diffs_dict) = (self._run_ipf_for_resolution(
+                                            region_marginals,
+                                            region_controls_config,
+                                            region_ids, region_to_sample))
         self.region_columns_dict = (self._get_columns_constraints_dict(
                                     self.region_constraints_dict))
 
@@ -188,10 +199,12 @@ class Run_IPF(object):
         geo_ids = self.db.geo_ids
         geo_to_sample = self.db.geo["geo_to_sample"]
         (self.geo_constraints,
-         self.geo_constraints_dict) = (self._run_ipf_for_resolution(
-                                       geo_marginals,
-                                       geo_controls_config,
-                                       geo_ids, geo_to_sample))
+         self.geo_constraints_dict,
+         self.geo_iters_convergence_dict,
+         self.geo_average_diffs_dict) = (self._run_ipf_for_resolution(
+                                         geo_marginals,
+                                         geo_controls_config,
+                                         geo_ids, geo_to_sample))
         self.geo_columns_dict = (self._get_columns_constraints_dict(
                                  self.geo_constraints_dict))
 
@@ -205,6 +218,8 @@ class Run_IPF(object):
                                 geo_ids, geo_corr_to_sample):
         constraints_list = []
         constraints_dict = {}
+        iters_convergence_dict = {}
+        average_diffs_dict = {}
         for entity in self.entities:
             print ("IPF for Entity: %s complete" % entity)
 
@@ -227,18 +242,24 @@ class Run_IPF(object):
                          variables_count, variables_cats,
                          self.sample_geo_name))
 
-            constraints = self._run_ipf_all_geos(entity, seed_geo, seed_all,
-                                                 row_idx, marginals,
-                                                 variable_names,
-                                                 variables_count,
-                                                 variables_cats,
-                                                 variables_cats_count,
-                                                 geo_ids, geo_corr_to_sample)
+            (constraints,
+             iters_convergence,
+             average_diffs) = self._run_ipf_all_geos(entity, seed_geo, seed_all,
+                                                     row_idx, marginals,
+                                                     variable_names,
+                                                     variables_count,
+                                                     variables_cats,
+                                                     variables_cats_count,
+                                                     geo_ids,
+                                                     geo_corr_to_sample)
             constraints_dict[entity] = constraints
+            iters_convergence[entity] = iters_convergence
+            average_diffs_dict[entity] = average_diffs
             constraints_list.append(constraints)
         constraints_resolution = (self._get_stacked_constraints(
                                   constraints_list))
-        return constraints_resolution, constraints_dict
+        return (constraints_resolution, constraints_dict,
+                iters_convergence_dict, average_diffs_dict)
 
     def _get_frequencies_for_resolution(self, geo_ids, constraints_dict,
                                         procedure="bucket"):
@@ -291,8 +312,10 @@ class Run_IPF(object):
                           variable_names, variables_count, variables_cats,
                           variables_cats_count, geo_ids, geo_corr_to_sample):
         ipf_results = pd.DataFrame(index=seed_all.index)
+        ipf_iters_convergence = pd.DataFrame(index=["iterations"])
+        ipf_avgerage_diffs = pd.DataFrame(index=["adjustments"])
         for geo_id in geo_ids:
-            print "\tIPF for Geo: %s for Entity: %s" % (geo_id, entity)
+            #print "\tIPF for Geo: %s for Entity: %s" % (geo_id, entity)
             sample_geo_id = geo_corr_to_sample.loc[geo_id,
                                                    self.sample_geo_name]
             if isinstance(sample_geo_id, pd.Series):
@@ -320,8 +343,14 @@ class Run_IPF(object):
                               variable_names, variables_cats,
                               variables_cats_count)
             #ipf_obj_geo.correct_zero_cell_issue()
-            ipf_results_geo = ipf_obj_geo.run_ipf()
-            ipf_results[geo_id] = ipf_results_geo
+            #ipf_results_geo = ipf_obj_geo.run_ipf()
+            ipf_obj_geo.run_ipf()
+            ipf_results[geo_id] = ipf_obj_geo.frequencies
+            ipf_iters_convergence[geo_id] = (
+                ipf_obj_geo.iter_convergence)
+            ipf_avgerage_diffs[geo_id] = (
+                ipf_obj_geo.average_diff_iters[-1])
+            #print '\t', ipf_obj_geo.iter_convergence, ipf_obj_geo.average_diff_iters
             if (ipf_results[geo_id] == 0).any():
                 raise Exception("""IPF cell values of zero are returned. """
                                 """Needs troubleshooting""")
@@ -329,7 +358,10 @@ class Run_IPF(object):
             #ipf_results[geo_id] = ipf_results_geo["frequency"]
             #raw_input("IPF for Geo: %s for Entity: %s complete"
             #          % (geo_id, self.entity))
-        return ipf_results
+        #print ipf_iters_convergence.T
+        #print ipf_avgerage_diffs.T
+        #raw_input("IPF Results")
+        return (ipf_results, ipf_iters_convergence.T, ipf_avgerage_diffs.T)
 
     def _get_stacked_constraints(self, constraints_list):
         if len(constraints_list) == 0:

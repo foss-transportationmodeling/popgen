@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 
-
 #TODO: Reimplement all DS processing in the Syn_Population Class
 class Reweighting_DS(object):
     def __init__(self):
@@ -75,6 +74,7 @@ class Run_IPU(object):
          self.geo_contrib) = (self._create_ds_for_resolution(
                               geo_controls_config))
         self._create_sample_weights_df()
+        self._create_ipu_performance_df()
 
     def _create_ds_for_resolution(self, control_variables_config):
         sample_restruct_list = []
@@ -100,6 +100,14 @@ class Run_IPU(object):
     def _create_sample_weights_df(self):
         self.region_sample_weights = (pd.DataFrame(
                                       index=self.region_stacked.index))
+
+    def _create_ipu_performance_df(self):
+        # TODO: In the future change the frequency at which
+        # performance measures are stored as a parameter that is
+        # specified by the user
+        self.iters_to_archive = range(0, self.outer_iterations, 2)
+        self.average_deviations = pd.DataFrame(index=self.db.geo_ids,
+                                               columns=self.iters_to_archive)
 
     def run_ipu(self, region_constraints, geo_constraints):
         for region_id in self.db.region_ids:
@@ -128,9 +136,15 @@ class Run_IPU(object):
                     #print "After geo:", sample_weights[:, :4]
                     #print ("sample_weights sum:", sample_weights.sum(),
                     #       sample_weights[:, index].sum())
-
+                    if iter in self.iters_to_archive:
+                        self._calculate_populate_average_deviation(
+                            geo_id, iter,
+                            sample_weights[:, index],
+                            geo_constraints.loc[geo_id])
+                        pass
             self._populate_sample_weights(sample_weights, region_id, geo_ids)
-            print "sample_weights sum:", sample_weights.sum()
+            #print self.average_deviations
+            print "\tsample_weights sum:", sample_weights.sum()
 
     def _adjust_sample_weights(self, sample_weights, constraints,
                                iters=1, geo=False):
@@ -148,8 +162,16 @@ class Run_IPU(object):
                 #TODO: the reversed iteration of list needs to be replaced with
                 #a user specified ordering of the constraints
                 if geo is False:
-                    weighted_sum = (sample_weights
-                                    .sum(axis=1).dot(contrib[column]))
+                    #t = time.time()
+                    #weighted_sum = (sample_weights
+                    #                .sum(axis=1).dot(contrib[column]))
+                    #print "Time taken: %.4f" % (time.time() - t)
+                    #t = time.time()
+                    weighted_sum = (
+                        sample_weights.T.dot(contrib[column])
+                        ).sum()
+                    #print "Time taken2: %.4ff" % (time.time() - t)
+                    #print weighted_sum, weighted_sum1
                 else:
                     weighted_sum = sample_weights.dot(contrib[column])
                 adjustment = constraints[column]/weighted_sum
@@ -162,12 +184,24 @@ class Run_IPU(object):
                     #print column, constraints[column], weighted_sum, adjustment
                     #raw_input("Zero sample weights adjusted")
 
-                if ((sample_weights == 0).any() or
-                        pd.isnull(sample_weights).any()):
-                    print constraints
-                    print column, constraints[column], weighted_sum, adjustment
-                    raw_input("Invalid row value of zero or null")
+                #if ((sample_weights == 0).any() or
+                #        pd.isnull(sample_weights).any()):
+                #    print constraints
+                #    print column, constraints[column], weighted_sum, adjustment
+                #    raw_input("Invalid row value of zero or null")
         return sample_weights
+
+    def _calculate_populate_average_deviation(
+            self, geo_id, iter, sample_weights, constraints):
+        diff_sum = 0
+        sample_weights = np.ascontiguousarray(sample_weights)
+
+        for column in constraints.index:
+            weighted_sum = sample_weights.dot(self.geo_contrib[column])
+            diff_sum += np.abs(weighted_sum - constraints[column])
+        average_diff = diff_sum/constraints.shape[0]
+        #print average_diff, sample_weights.sum()
+        self.average_deviations.loc[geo_id, iter] = average_diff
 
     def _populate_sample_weights(self, sample_weights, region_id, geo_ids):
         for index, geo_id in enumerate(geo_ids):

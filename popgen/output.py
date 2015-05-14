@@ -8,22 +8,33 @@ import numpy as np
 class Syn_Population(object):
     def __init__(
             self, location, db, column_names_config, scenario_config,
-            geo_constraints, geo_frequencies, region_constraints,
-            geo_row_idx, geo_stacked, region_sample_weights,
+            run_ipf_obj, run_ipu_obj, draw_population_obj,
             entities, housing_entities, person_entities):
+
+        #geo_constraints, geo_frequencies, region_constraints,
+        #geo_row_idx, geo_stacked, region_sample_weights,
+
         self.location = location
         self.db = db
         self.column_names_config = column_names_config
         self.scenario_config = scenario_config
-        self.geo_constraints = geo_constraints
-        self.geo_frequencies = geo_frequencies
-        self.region_constraints = region_constraints
-        self.geo_row_idx = geo_row_idx
-        self.geo_stacked = geo_stacked
-        self.region_sample_weights = region_sample_weights
+
+        self.run_ipf_obj = run_ipf_obj
+        self.geo_constraints = run_ipf_obj.geo_constraints
+        self.geo_frequencies = run_ipf_obj.geo_frequencies
+        self.region_constraints = run_ipf_obj.region_constraints
+
+        self.run_ipu_obj = run_ipu_obj
+        self.geo_row_idx = run_ipu_obj.geo_row_idx
+        self.geo_stacked = run_ipu_obj.geo_stacked
+        self.region_sample_weights = run_ipu_obj.region_sample_weights
+
+        self.draw_population_obj = draw_population_obj
+
         self.entities = entities
         self.housing_entities = housing_entities
         self.person_entities = person_entities
+
         self.geo_name = self.column_names_config.geo
         self.region_name = self.column_names_config.region
         self.hid_name = self.column_names_config.hid
@@ -102,6 +113,13 @@ class Syn_Population(object):
         stacked_sample.sort(inplace=True)
         return stacked_sample
 
+    def add_records(self):
+        geo_id_rows_syn_dict = self.draw_population_obj.geo_id_rows_syn_dict
+        for geo_id, geo_id_rows_syn in geo_id_rows_syn_dict.iteritems():
+            geo_id_pop_syn = (
+                self.get_stacked_geo_for_geo_id(geo_id, geo_id_rows_syn))
+            self.pop_rows_syn_dict[geo_id] = geo_id_pop_syn
+
     def add_records_for_geo_id(self, geo_id, geo_id_rows_syn):
         #if self.pop_syn is not None:
         #    self.pop_syn = self.pop_syn.append(
@@ -120,7 +138,7 @@ class Syn_Population(object):
         #    self.get_person_data_for_indexes(geo_id_pop_syn))
 
     def get_stacked_geo_for_geo_id(self, geo_id, geo_id_rows_syn):
-        geo_id_pop_syn = self.geo_stacked.take(geo_id_rows_syn)
+        geo_id_pop_syn = self.geo_stacked.take(geo_id_rows_syn).copy()
         geo_id_pop_syn[self.geo_name] = geo_id
         #print "\trows", geo_id_pop_syn.shape
         return geo_id_pop_syn
@@ -190,23 +208,60 @@ class Syn_Population(object):
         #self.pop_syn_data["housing"].reset_index(inplace=True)
         self.pop_syn_data["housing"].set_index(
             [self.geo_name, self.hid_name], inplace=True, drop=False)
-        #self.pop_syn_data["housing"].sort(inplace=True)
+        self.pop_syn_data["housing"].sort(inplace=True)
 
         #self.pop_syn_data["person"].reset_index(inplace=True)
         self.pop_syn_data["person"].set_index(
             [self.geo_name, self.hid_name, self.pid_name], inplace=True,
             drop=False)
-        #self.pop_syn_data["person"].sort(inplace=True)
+        self.pop_syn_data["person"].sort(inplace=True)
         print "Time elapsed for index is : %.4f" % (time.time() - t)
 
     def export_outputs(self):
         print "Generating Outputs"
         t = time.time()
+        self.export_performance_data()
         self.export_multiway_tables()
         self.export_summary()
         self.export_synthetic_population()
         print "Time elapsed for generating outputs is : %.4f" % (
             time.time() - t)
+
+    def export_performance_data(self):
+        values_to_export = self.scenario_config.outputs.performance
+        #print "Performance values to export:", values_to_export
+        if "ipf" in values_to_export:
+            self._export_all_df_in_dict(
+                self.run_ipf_obj.region_iters_convergence_dict,
+                "ipf_geo_iters_convergence_")
+            self._export_all_df_in_dict(
+                self.run_ipf_obj.geo_average_diffs_dict,
+                "ipf_geo_average_diffs_")
+            self._export_all_df_in_dict(
+                self.run_ipf_obj.geo_iters_convergence_dict,
+                "ipf_region_iters_convergence_")
+            self._export_all_df_in_dict(
+                self.run_ipf_obj.geo_average_diffs_dict,
+                "ipf_region_average_diffs_")
+
+        if "reweighting" in values_to_export:
+            self._export_df(
+                self.run_ipu_obj.average_deviations,
+                "reweighting_average_diffs")
+
+        if "drawing" in values_to_export:
+            self._export_df(
+                self.draw_population_obj.draws_performance, "draws")
+
+    def _export_df(self, df, filename):
+        filepath = os.path.join(self.outputlocation, "%s.csv" % filename)
+        df.to_csv(filepath)
+
+    def _export_all_df_in_dict(self, dict_of_dfs, fileprefix):
+        for key, value in dict_of_dfs.iteritems():
+            filename = "%s%s.csv" % (fileprefix, key)
+            filepath = os.path.join(self.outputlocation, filename)
+            value.to_csv(filepath)
 
     def export_multiway_tables(self):
         multiway_tables = self._return_multiway_tables()

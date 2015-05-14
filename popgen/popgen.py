@@ -102,27 +102,27 @@ class Scenario(object):
                                  self.run_ipf_obj.geo_constraints)
 
     def _draw_sample(self):
+        self.draw_population_obj = Draw_Population(
+            self.scenario_config, self.db.geo_ids,
+            self.run_ipu_obj.geo_row_idx, self.run_ipf_obj.geo_frequencies,
+            self.run_ipf_obj.geo_constraints, self.run_ipu_obj.geo_stacked,
+            self.run_ipu_obj.region_sample_weights)
+        self.draw_population_obj.draw_population()
+        print "Drawing completed in: %.4f" % (time.time() - self.t)
+
+    def _report_results(self):
         self.syn_pop_obj = Syn_Population(
             self.location,
             self.db,
             self.column_names_config,
             self.scenario_config,
-            self.run_ipf_obj.geo_constraints,
-            self.run_ipf_obj.geo_frequencies,
-            self.run_ipf_obj.region_constraints,
-            self.run_ipu_obj.geo_row_idx,
-            self.run_ipu_obj.geo_stacked,
-            self.run_ipu_obj.region_sample_weights,
+            self.run_ipf_obj,
+            self.run_ipu_obj,
+            self.draw_population_obj,
             self.entities,
             self.housing_entities,
             self.person_entities)
-
-        self.draw_population_obj = Draw_Population(self.scenario_config,
-                                                   self.syn_pop_obj)
-        self.draw_population_obj.draw_population()
-        print "Drawing completed in: %.4f" % (time.time() - self.t)
-
-    def _report_results(self):
+        self.syn_pop_obj.add_records()
         self.syn_pop_obj.prepare_data()
         self.syn_pop_obj.export_outputs()
         print "Results completed in: %.4f" % (time.time() - self.t)

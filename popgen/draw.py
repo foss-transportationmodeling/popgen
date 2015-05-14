@@ -4,16 +4,15 @@ from scipy import stats
 
 
 class Draw_Population(object):
-    def __init__(self, scenario_config, syn_population):
+    def __init__(self, scenario_config, geo_ids, geo_row_idx, geo_frequencies,
+                 geo_constraints, geo_stacked, region_sample_weights):
         self.scenario_config = scenario_config
-        self.syn_population = syn_population
-
-        self.geo_ids = self.syn_population.db.geo_ids
-        self.geo_row_idx = self.syn_population.geo_row_idx
-        self.geo_frequencies = self.syn_population.geo_frequencies
-        self.geo_constraints = self.syn_population.geo_constraints
-        self.geo_stacked = self.syn_population.geo_stacked
-        self.region_sample_weights = self.syn_population.region_sample_weights
+        self.geo_ids = geo_ids
+        self.geo_row_idx = geo_row_idx
+        self.geo_frequencies = geo_frequencies
+        self.geo_constraints = geo_constraints
+        self.geo_stacked = geo_stacked
+        self.region_sample_weights = region_sample_weights
 
         self.iterations = (
             self.scenario_config.parameters.draws.iterations)
@@ -21,17 +20,25 @@ class Draw_Population(object):
             self.scenario_config.parameters.draws.seed)
         self.pvalue_tolerance = (
             self.scenario_config.parameters.draws.pvalue_tolerance)
+        self.geo_id_rows_syn_dict = {}
+        self.draws_performance = pd.DataFrame(
+            index=self.geo_ids, columns=["p_value", "iterations",
+                                                 "chi_sq_stat"])
 
     def draw_population(self):
         np.random.seed(self.seed)
-        print "Drawing Households"
+        #print "Drawing Households"
+        performance_columns = ["p_value", "iterations", "chi_sq_stat"]
         for geo_id in self.geo_ids:
-            print "For geo:", geo_id
+            #print "For geo:", geo_id
             geo_sample_weights = self.region_sample_weights.loc[:, geo_id]
             geo_cumulative_weights = (self._return_cumulative_probability(
                                       geo_sample_weights))
             geo_id_frequencies = self.geo_frequencies.loc[geo_id, :]
             geo_id_constraints = self.geo_constraints.loc[geo_id, :]
+
+            if geo_id_frequencies.sum() == 0:
+                continue
 
             p_value_max = -1
             for iter in range(self.iterations):
@@ -46,16 +53,25 @@ class Draw_Population(object):
                      iter_max, stat_max, max_found) = (p_value,
                                                        geo_id_rows_syn, iter,
                                                        stat, True)
+                    self.draws_performance.loc[geo_id,
+                                               performance_columns] = (
+                        p_value_max, iter, stat_max)
                     break
                 elif p_value > p_value_max:
                     (p_value_max, geo_id_rows_syn_max,
                      iter_max, stat_max, max_found) = (p_value,
                                                        geo_id_rows_syn, iter,
                                                        stat, False)
+                    self.draws_performance.loc[geo_id,
+                                               performance_columns] = (
+                        p_value_max, iter, stat_max)
+
             #print "Max found:", max_found, geo_id_frequencies.sum()
             #print "Max iter: %d, %f, %f" % (iter_max, p_value_max, stat_max)
-            self.syn_population.add_records_for_geo_id(
-                geo_id, geo_id_rows_syn_max)
+            #self.syn_population.add_records_for_geo_id(
+            #    geo_id, geo_id_rows_syn_max)
+            self.geo_id_rows_syn_dict[geo_id] = geo_id_rows_syn_max
+        #print self.draws_performance
 
     def _return_cumulative_probability(self, geo_sample_weights):
         geo_cumulative_weights = {}
