@@ -1,0 +1,93 @@
+project:
+ synthesize: True
+ name: example
+ location: ../tutorials/1_basic_popgen_setup/
+ inputs:
+  entities: [household, person]
+  housing_entities: [household]
+  person_entities: [person]
+  column_names:
+   hid: hid
+   pid: pid
+   geo: geo
+   region: region
+   sample_geo: sample_geo
+  location:
+   geo_corr_mapping:
+    geo_to_sample: ../tutorials/1_basic_popgen_setup/geo_sample_mapping.csv
+    region_to_sample: ../tutorials/1_basic_popgen_setup/region_sample_mapping.csv
+    region_to_geo: ../tutorials/1_basic_popgen_setup/region_geo_mapping.csv
+   sample:
+    household: ../tutorials/1_basic_popgen_setup/household_sample.csv
+    person: ../tutorials/1_basic_popgen_setup/person_sample.csv
+   marginals:
+    geo:
+     household: ../tutorials/1_basic_popgen_setup/household_marginals.csv
+     person: ../tutorials/1_basic_popgen_setup/person_marginals.csv
+    region:
+     household: ../tutorials/1_basic_popgen_setup/region_household_marginals.csv
+     person: ../tutorials/1_basic_popgen_setup/region_person_marginals.csv
+
+ scenario:
+  - description: all_controls_entropy
+    apply_region_controls: True
+    control_variables:
+     region:
+      household: [rhhldtype]
+      person: []
+     geo:
+      household: [hhldtype]
+      person: [ptype]
+    parameters:
+     ipf:
+      tolerance: 0.0001
+      iterations: 250
+      zero_marginal_correction: 0.00001
+      rounding_procedure: bucket
+      archive_performance_frequency: 1
+     reweighting:
+      procedure: entropy
+      tolerance: 0.0001
+      inner_iterations: 1
+      outer_iterations: 1000
+      archive_performance_frequency: 1
+     draws:
+      pvalue_tolerance: 0.9999
+      iterations: 25
+      seed: 0
+    geos_to_synthesize:
+     region:
+      ids: [1]
+      all_ids: True
+    outputs:
+     performance: [ipf, reweighting, drawing]
+     weights:
+      export: True
+      collate_across_geos: False
+     multiway:
+      - variables: [ptype]
+        filename: ptype.csv
+        filetype: csv
+        entity: person
+      - variables: [hhldtype]
+        filename: hhldtype.csv
+        filetype: csv
+        entity: household
+      - variables: [rhhldtype]
+        filename: rhhldtype.csv
+        filetype: csv
+        entity: household
+     summary:
+      region:
+       filename: summary_region.csv
+       filetype: csv
+      geo:
+       filename: summary_geo.csv
+       filetype: csv
+     synthetic_population:
+      housing:
+       filename: housing_synthetic.csv
+       filetype: csv
+      person:
+       filename: person_synthetic.csv
+       filetype: csv

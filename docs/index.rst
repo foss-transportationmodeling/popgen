@@ -20,8 +20,8 @@ Contents:
 Feedback
 ========
 
-If you have any suggestions or questions about **Synthetic Population Generator .20** feel free to email me
+If you have any suggestions or questions about **Synthetic Population Generator 2.0** feel free to email me
 at karthik.charan@gmail.com.
 
-If you encounter any errors or problems with **Synthetic Population Generator .20**, please let me know!
-Open an Issue at the GitHub http://github.com/karthikcharan83/popgen main repository.
+If you encounter any errors or problems with **Synthetic Population Generator 2.0**, please let me know!
+Open an Issue at the GitHub http://github.com/foss-transportationmodeling/popgen main repository.
