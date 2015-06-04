@@ -11,9 +11,6 @@ class Syn_Population(object):
             run_ipf_obj, run_ipu_obj, draw_population_obj,
             entities, housing_entities, person_entities):
 
-        #geo_constraints, geo_frequencies, region_constraints,
-        #geo_row_idx, geo_stacked, region_sample_weights,
-
         self.location = location
         self.db = db
         self.column_names_config = column_names_config
@@ -39,9 +36,23 @@ class Syn_Population(object):
         self.region_name = self.column_names_config.region
         self.hid_name = self.column_names_config.hid
         self.pid_name = self.column_names_config.pid
+        self.unique_id_in_geo_name = "unique_id_in_geo"
 
         self.pop_syn = None
         self.pop_syn_data = {}
+
+        # The following sort column variables
+        # are useful to separate synthetic population when same
+        # sample unit is drawn multiple times
+        self.pop_syn_geo_id_columns = [self.geo_name,
+                                       self.unique_id_in_geo_name]
+        self.pop_syn_all_id_columns = [self.geo_name, self.hid_name,
+                                       self.unique_id_in_geo_name]
+        self.pop_syn_housing_matching_id_columns = [
+            self.geo_name, self.hid_name]
+        self.pop_syn_person_matching_id_columns = [
+            self.geo_name, self.hid_name, self.pid_name]
+
         self.pop_rows_syn_dict = {}
         self.housing_syn_dict = {}
         self.person_syn_dict = {}
@@ -57,9 +68,9 @@ class Syn_Population(object):
         self._create_prepare_output_directory()
 
     def _create_ds(self):
-        self.housing_stacked_sample = self.get_stacked_sample(
+        self.housing_stacked_sample = self._get_stacked_sample(
             self.housing_entities)
-        self.person_stacked_sample = self.get_stacked_sample(
+        self.person_stacked_sample = self._get_stacked_sample(
             self.person_entities)
 
     def _create_meta_data(self):
@@ -93,7 +104,11 @@ class Syn_Population(object):
         self.entity_types = ["housing", "person"]
 
     def _create_prepare_output_directory(self):
-        self.outputlocation = os.path.join(self.location, "outputs")
+        current_time_str = time.strftime("%Y-%m-%d %H-%M-%S", time.localtime())
+        foldername = ("%s %s" % (current_time_str,
+                                 self.scenario_config.description))
+        self.outputlocation = os.path.join(self.location,
+                                           foldername)
         if not os.path.exists(self.outputlocation):
             os.makedirs(self.outputlocation)
 
@@ -106,7 +121,7 @@ class Syn_Population(object):
             controls += controls_config[entity].return_list()
         return controls
 
-    def get_stacked_sample(self, entities):
+    def _get_stacked_sample(self, entities):
         sample_list = [self.db.sample[entity]
                        for entity in entities]
         stacked_sample = pd.concat(sample_list).fillna(0)
@@ -117,40 +132,44 @@ class Syn_Population(object):
         geo_id_rows_syn_dict = self.draw_population_obj.geo_id_rows_syn_dict
         for geo_id, geo_id_rows_syn in geo_id_rows_syn_dict.iteritems():
             geo_id_pop_syn = (
-                self.get_stacked_geo_for_geo_id(geo_id, geo_id_rows_syn))
+                self._get_stacked_geo_for_geo_id(geo_id, geo_id_rows_syn))
             self.pop_rows_syn_dict[geo_id] = geo_id_pop_syn
+            self.pop_rows_syn_dict[geo_id][self.unique_id_in_geo_name] = (
+                range(1, geo_id_rows_syn.shape[0]+1))
+            # print self.pop_rows_syn_dict[geo_id].head()
+            # raw_input()
 
-    def add_records_for_geo_id(self, geo_id, geo_id_rows_syn):
-        #if self.pop_syn is not None:
+    def _add_records_for_geo_id(self, geo_id, geo_id_rows_syn):
+        # if self.pop_syn is not None:
         #    self.pop_syn = self.pop_syn.append(
         #        self.get_records_for_geo_id(geo_id, geo_id_rows_syn),
         #        ignore_index=True)
-        #else:
+        # else:
         #    self.pop_syn = self.get_records_for_geo_id(
         #    geo_id, geo_id_rows_syn)
         geo_id_pop_syn = (
-            self.get_stacked_geo_for_geo_id(geo_id, geo_id_rows_syn))
+            self._get_stacked_geo_for_geo_id(geo_id, geo_id_rows_syn))
 
         self.pop_rows_syn_dict[geo_id] = geo_id_pop_syn
-        #self.housing_syn_dict[geo_id] = (
+        # self.housing_syn_dict[geo_id] = (
         #    self.get_housing_data_for_indexes(geo_id_pop_syn))
-        #self.person_syn_dict[geo_id] = (
+        # self.person_syn_dict[geo_id] = (
         #    self.get_person_data_for_indexes(geo_id_pop_syn))
 
-    def get_stacked_geo_for_geo_id(self, geo_id, geo_id_rows_syn):
+    def _get_stacked_geo_for_geo_id(self, geo_id, geo_id_rows_syn):
         geo_id_pop_syn = self.geo_stacked.take(geo_id_rows_syn).copy()
         geo_id_pop_syn[self.geo_name] = geo_id
-        #print "\trows", geo_id_pop_syn.shape
+        # print "\trows", geo_id_pop_syn.shape
         return geo_id_pop_syn
 
-    def get_housing_data_for_indexes(self, geo_id_pop_syn):
+    def _get_housing_data_for_indexes(self, geo_id_pop_syn):
         housing_data = (
             geo_id_pop_syn.loc[:, [self.geo_name]].join(
                 self.housing_stacked_sample))
         print "housing rows:", housing_data.shape
         return housing_data
 
-    def get_person_data_for_indexes(self, geo_id_pop_syn):
+    def _get_person_data_for_indexes(self, geo_id_pop_syn):
         person_data = (
             geo_id_pop_syn.loc[:, [self.geo_name]].join(
                 self.person_stacked_sample))
@@ -166,92 +185,92 @@ class Syn_Population(object):
         t = time.time()
         self.pop_syn = pd.concat(
             self.pop_rows_syn_dict.values(), copy=False)
-        #self.pop_syn_data["housing"] = pd.concat(
+        # self.pop_syn_data["housing"] = pd.concat(
         #    self.housing_syn_dict.values(), copy=False)
-        #self.pop_syn_data["person"] = pd.concat(
+        # self.pop_syn_data["person"] = pd.concat(
         #    self.person_syn_dict.values(), copy=False)
-        #print self.pop_syn_data["housing"].shape
-        #print self.pop_syn_data["person"].shape
+        # print self.pop_syn_data["housing"].shape
+        # print self.pop_syn_data["person"].shape
         print "Time elapsed for stacking population is : %.4f" % (
             time.time() - t)
 
     def _create_synthetic_population(self):
         t = time.time()
         self.pop_syn_data["housing"] = (
-            self.pop_syn.loc[:, [self.geo_name]].join(
+            self.pop_syn.loc[:, self.pop_syn_geo_id_columns].join(
                 self.housing_stacked_sample))
         self.pop_syn_data["person"] = (
-            self.pop_syn.loc[:, [self.geo_name]].join(
+            self.pop_syn.loc[:, self.pop_syn_geo_id_columns].join(
                 self.person_stacked_sample))
-        print self.pop_syn_data["housing"].shape
-        print self.pop_syn_data["person"].shape
-        print "Time elapsed for synthetic population 1 is : %.4f" % (
-            time.time() - t)
+        print "\tSize of the housing population table:", (
+            self.pop_syn_data["housing"].shape)
+        print "\tSize of the person population table:", (
+            self.pop_syn_data["person"].shape)
+        # print "Time elapsed for synthetic population 1 is : %.4f" % (
+        #    time.time() - t)
 
-        """
-        t = time.time()
-        self.pop_syn_data["housing"] = (
-            pd.merge(self.pop_syn.loc[:, [self.geo_name]],
-                     self.housing_stacked_sample,
-                     left_index=True, right_index=True))
-        self.pop_syn_data["person"] = (
-            pd.merge(self.pop_syn.loc[:, [self.geo_name]],
-                     self.person_stacked_sample,
-                     left_index=True, right_index=True))
-        print self.pop_syn_data["housing"].shape
-        print self.pop_syn_data["person"].shape
-        print "Time elapsed for synthetic population 2 is : %.4f" % (
-            time.time() - t)
-        """
     def _create_index(self):
         t = time.time()
-        #self.pop_syn_data["housing"].reset_index(inplace=True)
+        # self.pop_syn_data["housing"].reset_index(inplace=True)
         self.pop_syn_data["housing"].set_index(
-            [self.geo_name, self.hid_name], inplace=True, drop=False)
+            self.pop_syn_housing_matching_id_columns, inplace=True, drop=False)
         self.pop_syn_data["housing"].sort(inplace=True)
 
-        #self.pop_syn_data["person"].reset_index(inplace=True)
+        # self.pop_syn_data["person"].reset_index(inplace=True)
         self.pop_syn_data["person"].set_index(
-            [self.geo_name, self.hid_name, self.pid_name], inplace=True,
+            self.pop_syn_person_matching_id_columns, inplace=True,
             drop=False)
         self.pop_syn_data["person"].sort(inplace=True)
-        print "Time elapsed for index is : %.4f" % (time.time() - t)
+        # print "Time elapsed for index is : %.4f" % (time.time() - t)
 
     def export_outputs(self):
-        print "Generating Outputs"
+        print "\tGenerating Outputs"
         t = time.time()
-        self.export_performance_data()
-        self.export_multiway_tables()
-        self.export_summary()
-        self.export_synthetic_population()
-        print "Time elapsed for generating outputs is : %.4f" % (
+        self._export_performance_data()
+        self._export_multiway_tables()
+        self._export_summary()
+        self._export_weights()
+        self._export_synthetic_population()
+        self._pretty_print_scenario_configuration_file_to_output()
+        print "\tTime elapsed for generating outputs is : %.4f" % (
             time.time() - t)
 
-    def export_performance_data(self):
+    def _pretty_print_scenario_configuration_file_to_output(self):
+        filepath = os.path.join(self.outputlocation,
+                                "%s.yaml" % self.scenario_config.description)
+        self.scenario_config.write_to_file(filepath)
+
+    def _export_performance_data(self):
         values_to_export = self.scenario_config.outputs.performance
-        #print "Performance values to export:", values_to_export
+        # print "Performance values to export:", values_to_export
         if "ipf" in values_to_export:
             self._export_all_df_in_dict(
-                self.run_ipf_obj.region_iters_convergence_dict,
+                self.run_ipf_obj.geo_iters_convergence_dict,
                 "ipf_geo_iters_convergence_")
             self._export_all_df_in_dict(
                 self.run_ipf_obj.geo_average_diffs_dict,
                 "ipf_geo_average_diffs_")
             self._export_all_df_in_dict(
-                self.run_ipf_obj.geo_iters_convergence_dict,
+                self.run_ipf_obj.region_iters_convergence_dict,
                 "ipf_region_iters_convergence_")
             self._export_all_df_in_dict(
-                self.run_ipf_obj.geo_average_diffs_dict,
+                self.run_ipf_obj.region_average_diffs_dict,
                 "ipf_region_average_diffs_")
-
         if "reweighting" in values_to_export:
             self._export_df(
-                self.run_ipu_obj.average_deviations,
+                self.run_ipu_obj.average_diffs,
                 "reweighting_average_diffs")
-
         if "drawing" in values_to_export:
             self._export_df(
                 self.draw_population_obj.draws_performance, "draws")
+
+    def _export_weights(self):
+        export_weights_config = self.scenario_config.outputs.weights
+        if export_weights_config.export:
+            df = pd.DataFrame(self.run_ipu_obj.region_sample_weights)
+            if export_weights_config.collate_across_geos:
+                df = df.sum(axis=1)
+            self._export_df(df, "weights")
 
     def _export_df(self, df, filename):
         filepath = os.path.join(self.outputlocation, "%s.csv" % filename)
@@ -263,7 +282,7 @@ class Syn_Population(object):
             filepath = os.path.join(self.outputlocation, filename)
             value.to_csv(filepath)
 
-    def export_multiway_tables(self):
+    def _export_multiway_tables(self):
         multiway_tables = self._return_multiway_tables()
 
         for (filename, filetype), table in multiway_tables.iteritems():
@@ -283,20 +302,21 @@ class Syn_Population(object):
             multiway_table_entity = self._return_aggregate_by_geo(
                 variables, entity_type, entity)
             multiway_tables[(filename, filetype)] = multiway_table_entity
-            print "\tTime elapsed for each table is: %.4f" % (time.time() - t)
+            print "\t\tTime elapsed for each table is: %.4f" % (
+                time.time() - t)
         return multiway_tables
 
-    def export_synthetic_population(self):
+    def _export_synthetic_population(self):
         t = time.time()
         synthetic_population_config = (
             self.scenario_config.outputs.synthetic_population)
-        sort_columns = [self.geo_name, self.hid_name]
+        sort_columns = self.pop_syn_all_id_columns
         for entity_type in self.entity_types:
             (filename, filetype) = (
                 synthetic_population_config[entity_type].filename,
                 synthetic_population_config[entity_type].filetype)
             filepath = os.path.join(self.outputlocation, filename)
-            #self.pop_syn_data[entity_type].to_csv(
+            # self.pop_syn_data[entity_type].to_csv(
             #    filepath, sep=self.filetype_sep_dict[filetype], index=False)
             self.pop_syn_data[entity_type].sort(
                 sort_columns, inplace=True)
@@ -319,7 +339,7 @@ class Syn_Population(object):
             )
         return multiway_table_entity
 
-    def export_summary(self):
+    def _export_summary(self):
         t = time.time()
         summary_config = self.scenario_config.outputs.summary
         marginal_geo = self._return_marginal_geo()
@@ -328,7 +348,7 @@ class Syn_Population(object):
         filepath = os.path.join(self.outputlocation, geo_filename)
         marginal_geo.to_csv(
             filepath, sep=self.filetype_sep_dict[geo_filetype])
-        #print marginal_geo
+        # print marginal_geo
 
         marginal_region = self._return_marginal_region(marginal_geo)
         (region_filename, region_filetype) = (
@@ -337,7 +357,7 @@ class Syn_Population(object):
         marginal_region.to_csv(
             filepath, sep=self.filetype_sep_dict[region_filetype])
         print "\tSummary creation took: %.4f" % (time.time() - t)
-        #print marginal_region
+        # print marginal_region
 
     def _return_marginal_region(self, marginal_geo):
         region_to_geo = self.db.geo["region_to_geo"]
@@ -375,9 +395,6 @@ class Syn_Population(object):
         stacked_marginal.set_index(["name", "categories"], inplace=True)
         stacked_marginal.sort(inplace=True)  # Sort by row indices
         return stacked_marginal.T
-
-    def return_summary(self):
-        pass
 
     def _report_summary(self, geo_id_rows_syn, geo_id_frequencies,
                         geo_id_constraints, over_columns=None):

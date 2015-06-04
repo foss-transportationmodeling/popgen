@@ -3,6 +3,8 @@ import os
 import pandas as pd
 import numpy as np
 
+from config import ConfigError
+
 
 class DB(object):
     """This class returns a Inputs object that can be used to handle all
@@ -45,9 +47,11 @@ class DB(object):
         self.region_marginals = self.get_data(region_marginals_config,
                                               header=[0, 1])
 
+        self._enumerate_geo_ids()
+
     def get_data(self, config, header=0):
         config_dict = config.return_dict()
-        #print config_dict, type(config_dict)
+        # print config_dict, type(config_dict)
         data_dict = {}
         for item in config_dict:
             full_location = os.path.abspath(config_dict[item])
@@ -56,30 +60,38 @@ class DB(object):
             data_dict[item].loc[:,
                                 data_dict[item].index.name] = (data_dict[item]
                                                                .index.values)
-            #print data_dict[item]
-        #print data_dict.keys()
+            # print data_dict[item]
+        # print data_dict.keys()
         return data_dict
 
-    def enumerate_geo_ids(self):
+    def _enumerate_geo_ids(self):
         geo_to_sample = self.geo["geo_to_sample"]
-        self.geo_ids = geo_to_sample.index.values
-        self.sample_geo_ids = np.unique(geo_to_sample[self._inputs_config
-                                                      .column_names
-                                                      .sample_geo].values)
-
+        self.geo_ids_all = geo_to_sample.index.tolist()
+        # self.sample_geo_ids = np.unique(geo_to_sample[self._inputs_config
+        #                                              .column_names
+        #                                              .sample_geo].values)
         region_to_geo = self.geo["region_to_geo"]
-        self.region_ids = np.unique(region_to_geo.index.values)
+        self.region_ids_all = np.unique(region_to_geo.index.values).tolist()
 
-        #region_to_sample = self.geo["region_to_sample"]
-        #self.region_ids = np.unique(region_to_sample.index.values)
+        # region_to_sample = self.geo["region_to_sample"]
+        # self.region_ids = np.unique(region_to_sample.index.values)
 
     def get_geo_ids_for_region(self, region_id):
         geo_name = self._inputs_config.column_names.geo
-        return self.geo["region_to_geo"].loc[region_id, geo_name].copy()
+        return (
+            self.geo["region_to_geo"].loc[region_id, geo_name].copy().tolist())
 
-    def enumerate_geo_ids_to_synthesize(self):
-        #TODO: Implement this to only synthesize a few geographies
-        pass
+    def enumerate_geo_ids_for_scenario(self, scenario_config):
+        try:
+            self.region_ids = scenario_config.geos_to_synthesize.region.ids
+            self.geo_ids = []
+            for region_id in self.region_ids:
+                self.geo_ids += self.get_geo_ids_for_region(region_id)
+        except ConfigError, e:
+            print "KeyError", e
+            self.geo_ids = self.geo_ids_all
+            # self.sample_geo_ids = self.sample_geo_ids_all
+            self.region_ids = self.region_ids_all
 
     def return_variables_cats(self, entity, variable_names):
         variables_cats = {}
@@ -95,12 +107,10 @@ class DB(object):
         self.check_sample_marginals_consistency()
         self.check_marginals()
 
-    def check_sample_margianls_consistency(self):
-        #TODO: check consistency in variables across files
-        #TODO: check consistency in categories across files
-        pass
-
-    def check_marginals(self):
-        #TODO: check consistency in marginals across
-        #TODO: check geo ids, sample geo ids, region ids across files
+    def check(self):
+        # TODO: check if the ids entered are consistent with the region ids
+        # TODO: check consistency in variables across files
+        # TODO: check consistency in categories across files
+        # TODO: check consistency in marginals across
+        # TODO: check geo ids, sample geo ids, region ids across files
         pass

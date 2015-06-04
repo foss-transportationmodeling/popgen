@@ -1,13 +1,12 @@
 import logging
 import os
 import time
-
 import yaml
 
 from config import Config
 from data import DB
 from ipf import Run_IPF
-from reweighting import Run_IPU, Reweighting_DS
+from reweighting import Run_Reweighting, Reweighting_DS
 from draw import Draw_Population
 from output import Syn_Population
 
@@ -18,19 +17,18 @@ class Project(object):
 
     """
     def __init__(self, config_loc):
-        self._config_loc = config_loc
+        self.config_loc = config_loc
 
     def load_project(self):
         self._load_config()
         self._populate_project_properties()
         self._load_data()
-        self._enumerate_geos()
 
     def _load_config(self):
-        #TODO: validating config file for YAML
-        #TODO: validating YAML config file for field types
-        #TODO: validating YAML for consistency across fields/config elements
-        config_f = file(self._config_loc, "r")
+        # TODO: validating config file for YAML
+        # TODO: validating YAML config file for field types
+        # TODO: validating YAML for consistency across fields/config elements
+        config_f = file(self.config_loc, "r")
         config_dict = yaml.load(config_f)
         self._config = Config(config_dict)
         self.column_names_config = self._config.project.inputs.column_names
@@ -46,9 +44,6 @@ class Project(object):
     def _load_data(self):
         self.db = DB(self._config)
         self.db.load_data()
-
-    def _enumerate_geos(self):
-        self.db.enumerate_geo_ids()
 
     def run_scenarios(self):
         scenarios_config = self._config.project.scenario
@@ -75,10 +70,14 @@ class Scenario(object):
         self.t = time.time()
 
     def run_scenario(self):
+        self._get_geo_ids()
         self._run_ipf()
         self._run_weighting()
         self._draw_sample()
         self._report_results()
+
+    def _get_geo_ids(self):
+        self.db.enumerate_geo_ids_for_scenario(self.scenario_config)
 
     def _run_ipf(self):
         self.run_ipf_obj = Run_IPF(self.entities,
@@ -90,23 +89,26 @@ class Scenario(object):
 
     def _run_weighting(self):
         reweighting_config = self.scenario_config.parameters.reweighting
-        if reweighting_config.procedure == "ipu":
-            self._run_ipu()
+        # if reweighting_config.procedure == "ipu":
+        #     self._run_ipu()
+        # def _run_ipu(self):
+        self.run_reweighting_obj = Run_Reweighting(
+            self.entities, self.column_names_config,
+            self.scenario_config, self.db)
+        self.run_reweighting_obj.create_ds()
+        self.run_reweighting_obj.run_reweighting(
+            self.run_ipf_obj.region_constraints,
+            self.run_ipf_obj.geo_constraints)
         print "Reweighting completed in: %.4f" % (time.time() - self.t)
-
-    def _run_ipu(self):
-        self.run_ipu_obj = Run_IPU(self.entities, self.column_names_config,
-                                   self.scenario_config, self.db)
-        self.run_ipu_obj.create_ds()
-        self.run_ipu_obj.run_ipu(self.run_ipf_obj.region_constraints,
-                                 self.run_ipf_obj.geo_constraints)
 
     def _draw_sample(self):
         self.draw_population_obj = Draw_Population(
             self.scenario_config, self.db.geo_ids,
-            self.run_ipu_obj.geo_row_idx, self.run_ipf_obj.geo_frequencies,
-            self.run_ipf_obj.geo_constraints, self.run_ipu_obj.geo_stacked,
-            self.run_ipu_obj.region_sample_weights)
+            self.run_reweighting_obj.geo_row_idx,
+            self.run_ipf_obj.geo_frequencies,
+            self.run_ipf_obj.geo_constraints,
+            self.run_reweighting_obj.geo_stacked,
+            self.run_reweighting_obj.region_sample_weights)
         self.draw_population_obj.draw_population()
         print "Drawing completed in: %.4f" % (time.time() - self.t)
 
@@ -117,7 +119,7 @@ class Scenario(object):
             self.column_names_config,
             self.scenario_config,
             self.run_ipf_obj,
-            self.run_ipu_obj,
+            self.run_reweighting_obj,
             self.draw_population_obj,
             self.entities,
             self.housing_entities,
@@ -138,7 +140,7 @@ if __name__ == "__main__":
     from data import DB
 
     t = time.time()
-    p_obj = Project("../demo/bmc_taz_2012/configuration.yaml")
+    p_obj = Project("../tutorials/1_basic_popgen_setup/configuration.yaml")
     p_obj.load_project()
     p_obj.run_scenarios()
     print "Time it took: %.4f" % (time.time() - t)

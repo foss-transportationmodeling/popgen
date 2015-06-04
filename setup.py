@@ -3,6 +3,8 @@
 import os
 import sys
 
+import popgen
+
 try:
     from setuptools import setup
 except ImportError:
@@ -23,7 +25,7 @@ history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 setup(
     name='popgen',
-    version='2.0',
+    version=popgen.__version__,
     description='Synthetic Population Generator 2.0',
     long_description=readme + '\n\n' + doclink + '\n\n' + history,
     author='Karthik Konduri',
@@ -32,9 +34,17 @@ setup(
     packages=[
         'popgen',
     ],
-    package_dir={'popgen': 'popgen'},
+    # package_dir={'popgen': 'popgen'},
+    package_data={'popgen': [
+        '../tutorials/1_basic_popgen_setup/*.csv',
+        '../tutorials/1_basic_popgen_setup/*.yaml']},
     include_package_data=True,
+    setup_requires=['numpy==1.9.2'],
     install_requires=[
+        'PyYAML==3.11',
+        'numpy==1.9.2',
+        'scipy==0.15.1',
+        'pandas==0.16.1'
     ],
     license='Apache License 2.0',
     zip_safe=False,
@@ -45,5 +55,6 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Natural Language :: English',
         'Programming Language :: Python :: 2.7',
+        'Operating System :: OS Independent'
     ],
 )

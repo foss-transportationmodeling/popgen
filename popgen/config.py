@@ -1,12 +1,20 @@
+import yaml
+
+
+class ConfigError(Exception):
+    pass
+
+
 def wrap_config_value(value):
     """The method is used to wrap YAML elements as Config objects. So the
     YAML properties can be accessed using attribute access.
-    E.g. If config object - x for the following YAML is given as:
+    E.g. If config object - x for is specificed as the following YAML:
 
     attribbute1:
         attribute2     : 'Value'
 
     then attribute access x.attribute1.attribute2 is used to access "Value".
+    Also, x.attribute can be used to access the dictionary {attribute: 'value'}
     """
     if isinstance(value, basestring):
         return value
@@ -38,8 +46,8 @@ class Config(object):
         try:
             value = self._data[key]
         except KeyError, e:
-            raise KeyError("Key - %s doesn't exist in the YAML configuration"
-                           % key)
+            raise ConfigError(
+                "Key - %s doesn't exist in the YAML configuration" % key)
         return value
 
     def __len__(self):
@@ -56,6 +64,12 @@ class Config(object):
 
     def return_dict(self):
         return self._data
+
+    def write_to_file(self, filepath):
+        with open(filepath, 'w') as outfile:
+            outfile.write(yaml.dump(self._data,
+                                    default_flow_style=False))
+
 
 if __name__ == "__main__":
     import yaml
