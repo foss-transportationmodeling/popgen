@@ -18,4 +18,9 @@ Synthetic Population Generator 2.0
 Features
 --------
 
-* TODO
+For PopGen 2.1
+* Automatic data validator
+* Census data importer
+
+For PopGen 2.2
+* Output Data Analyzer with charting and table generation capabilities

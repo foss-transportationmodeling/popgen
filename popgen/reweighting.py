@@ -140,7 +140,7 @@ class Run_Reweighting(object):
                                       region_constraints.loc[region_id]))
                 # print "After region:", sample_weights[:, :4]
                 # raw_input("region_done")
-                for index, geo_id in enumerate(geo_ids[:20]):
+                for index, geo_id in enumerate(geo_ids):
                     # print ("Geo: %s " % geo_id)
                     sample_weights[:, index] = (self._adjust_sample_weights(
                                                 sample_weights[:, index],

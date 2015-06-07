@@ -29,7 +29,7 @@ class Draw_Population(object):
     def draw_population(self):
         np.random.seed(self.seed)
         # print "Drawing Households"
-        for geo_id in self.geo_ids[:20]:
+        for geo_id in self.geo_ids:
             # print "For geo:", geo_id
             geo_sample_weights = self.region_sample_weights.loc[:, geo_id]
             geo_cumulative_weights = (self._return_cumulative_probability(

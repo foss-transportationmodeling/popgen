@@ -58,7 +58,6 @@ project:
     geos_to_synthesize:
      region:
       ids: [1]
-      all_ids: True
     outputs:
      performance: [ipf, reweighting, drawing]
      weights:
