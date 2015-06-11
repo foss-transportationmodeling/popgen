@@ -38,6 +38,7 @@ setup(
     package_data={'popgen': [
         '../tutorials/1_basic_popgen_setup/*.csv',
         '../tutorials/1_basic_popgen_setup/*.yaml']},
+    scripts=['bin/popgen_run'],
     include_package_data=True,
     setup_requires=['numpy==1.9.2'],
     install_requires=[

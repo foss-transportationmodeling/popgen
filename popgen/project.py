@@ -38,7 +38,6 @@ class Project(object):
 
     def _populate_project_properties(self):
         self.name = self._config.project.name
-        self.synthesize = self._config.project.synthesize
         self.location = os.path.abspath(self._config.project.location)
 
     def _load_data(self):

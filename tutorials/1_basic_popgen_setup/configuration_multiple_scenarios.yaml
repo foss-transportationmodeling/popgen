@@ -1,5 +1,4 @@
 project:
- synthesize: True
  name: example
  location: ../demo/example/
  inputs:
@@ -27,7 +26,6 @@ project:
     region:
      household: ../demo/example/region_household_marginals.csv
      person: ../demo/example/region_person_marginals.csv
-
  scenario:
   - description: derived_2_entropy
     apply_region_controls: True

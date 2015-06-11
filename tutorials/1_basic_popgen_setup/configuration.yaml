@@ -1,7 +1,6 @@
 project:
- synthesize: True
  name: example
- location: ../tutorials/1_basic_popgen_setup/
+ location: ./tutorials/1_basic_popgen_setup/
  inputs:
   entities: [household, person]
   housing_entities: [household]
@@ -14,23 +13,21 @@ project:
    sample_geo: sample_geo
   location:
    geo_corr_mapping:
-    geo_to_sample: ../tutorials/1_basic_popgen_setup/geo_sample_mapping.csv
-    region_to_sample: ../tutorials/1_basic_popgen_setup/region_sample_mapping.csv
-    region_to_geo: ../tutorials/1_basic_popgen_setup/region_geo_mapping.csv
+    geo_to_sample: geo_sample_mapping.csv
+    region_to_sample: region_sample_mapping.csv
+    region_to_geo: region_geo_mapping.csv
    sample:
-    household: ../tutorials/1_basic_popgen_setup/household_sample.csv
-    person: ../tutorials/1_basic_popgen_setup/person_sample.csv
+    household: household_sample.csv
+    person: person_sample.csv
    marginals:
-    geo:
-     household: ../tutorials/1_basic_popgen_setup/household_marginals.csv
-     person: ../tutorials/1_basic_popgen_setup/person_marginals.csv
     region:
-     household: ../tutorials/1_basic_popgen_setup/region_household_marginals.csv
-     person: ../tutorials/1_basic_popgen_setup/region_person_marginals.csv
-
+     household: region_household_marginals.csv
+     person: region_person_marginals.csv
+    geo:
+     household: household_marginals.csv
+     person: person_marginals.csv
  scenario:
-  - description: all_controls_entropy
-    apply_region_controls: True
+  - description: all_controls_ipu
     control_variables:
      region:
       household: [rhhldtype]
@@ -46,7 +43,7 @@ project:
       rounding_procedure: bucket
       archive_performance_frequency: 1
      reweighting:
-      procedure: entropy
+      procedure: ipu
       tolerance: 0.0001
       inner_iterations: 1
       outer_iterations: 1000

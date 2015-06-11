@@ -157,8 +157,8 @@ class Run_Reweighting(object):
                             geo_constraints.loc[geo_id])
                         pass
                     # raw_input("Geo done %s" %geo_id)
-                # raw_input ("One outer iteration complete in %.4f" %
-                #            (time.time() - t))
+                # print ("\t\t\tOne outer iteration complete in %.4f" %
+                #       (time.time() - t))
             self._populate_sample_weights(sample_weights, region_id, geo_ids)
             # print self.average_deviations
             print "\tsample_weights sum:", sample_weights.sum()
@@ -262,6 +262,7 @@ class Run_Reweighting(object):
             self, geo_id, iter, sample_weights, constraints):
         diff_sum = 0
 
+        sample_weights = np.array(sample_weights, order="C")
         for column in constraints.index:
             weighted_sum = sample_weights.dot(self.geo_contrib[column])
             diff_sum += (np.abs(weighted_sum - constraints[column]) /

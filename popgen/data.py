@@ -30,6 +30,7 @@ class DB(object):
         self.region_ids = None
         self.sample_geo_ids = None
         self._inputs_config = self.config.project.inputs
+        self.location = os.path.abspath(self.config.project.location)
 
     def load_data(self):
 
@@ -54,7 +55,8 @@ class DB(object):
         # print config_dict, type(config_dict)
         data_dict = {}
         for item in config_dict:
-            full_location = os.path.abspath(config_dict[item])
+            filename = config_dict[item]
+            full_location = os.path.join(self.location, filename)
             data_dict[item] = pd.read_csv(full_location, index_col=0,
                                           header=header)
             data_dict[item].loc[:,
