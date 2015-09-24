@@ -3,13 +3,10 @@
 import os
 import sys
 
-import popgen
-
 try:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
-
 
 if sys.argv[-1] == 'publish':
     os.system('python setup.py sdist upload')
@@ -25,7 +22,7 @@ history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 setup(
     name='popgen',
-    version=popgen.__version__,
+    version='2.0.b2',
     description='Synthetic Population Generator 2.0',
     long_description=readme + '\n\n' + doclink + '\n\n' + history,
     author='Karthik Konduri',
