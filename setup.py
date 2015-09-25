@@ -13,6 +13,10 @@ if sys.argv[-1] == 'publish':
     sys.exit()
 
 readme = open('README.rst').read()
+
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
+
 doclink = """
 Documentation
 -------------
@@ -37,13 +41,7 @@ setup(
         '../tutorials/1_basic_popgen_setup/*.yaml']},
     scripts=['bin/popgen_run'],
     include_package_data=True,
-    setup_requires=['numpy==1.9.2'],
-    install_requires=[
-        'PyYAML==3.11',
-        'numpy==1.9.2',
-        'scipy==0.15.1',
-        'pandas==0.16.1'
-    ],
+    install_requires=requirements,
     license='Apache License 2.0',
     zip_safe=False,
     keywords='popgen',
