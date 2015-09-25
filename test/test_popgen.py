@@ -2,7 +2,7 @@
 Tests for `popgen` module.
 """
 import pytest
-from popgen import popgen
+from popgen import Project
 
 
 class TestPopgen(object):
