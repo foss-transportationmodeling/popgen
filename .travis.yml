@@ -24,13 +24,12 @@ before_install:
   # on Travis and are not specific to using Miniconda
   - sudo rm -rf /dev/shm
   - sudo ln -s /run/shm /dev/shm
-  - sudo apt-get install liblapack-dev gfortran
 
 install:
   - conda create --yes -n popgen_venv python=$TRAVIS_PYTHON_VERSION pip numpy scipy pandas PyYAML
   - source activate popgen_venv
   - pip install pytest
-  - pip install popgen
+  - python setup.py install
 
 # command to run tests, e.g. python setup.py test
 script:
