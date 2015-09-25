@@ -1,6 +1,6 @@
 project:
  name: example
- location: ./tutorials/1_basic_popgen_setup/
+ location: ../tutorials/1_basic_popgen_setup/
  inputs:
   entities: [household, person]
   housing_entities: [household]
