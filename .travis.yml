@@ -27,7 +27,8 @@ before_install:
   - sudo apt-get install liblapack-dev gfortran
 
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy pandas PyYAML
+  - conda create --yes -n popgen_venv python=$TRAVIS_PYTHON_VERSION pip numpy scipy pandas PyYAML
+  - source activate popgen_venv
   - pip install pytest
   - pip install popgen
 
