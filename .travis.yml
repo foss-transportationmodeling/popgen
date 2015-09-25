@@ -24,6 +24,7 @@ before_install:
   # on Travis and are not specific to using Miniconda
   - sudo rm -rf /dev/shm
   - sudo ln -s /run/shm /dev/shm
+  - sudo apt-get install liblapack-dev gfortran
 
 install:
   - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy pandas PyYAML
