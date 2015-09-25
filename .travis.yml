@@ -26,9 +26,9 @@ before_install:
   - sudo ln -s /run/shm /dev/shm
 
 install:
-  - conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy pandas PyYAML
+  - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy pandas PyYAML
   - pip install pytest
-  - python setup.py install
+  - pip install popgen
 
 # command to run tests, e.g. python setup.py test
 script:
