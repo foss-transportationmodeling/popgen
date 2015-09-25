@@ -26,8 +26,7 @@ before_install:
   - sudo ln -s /run/shm /dev/shm
 
 install:
-  - deps = PyYAML numpy scipy pandas
-  - conda create --yes -n popgen_env python=$TRAVIS_PYTHON_VERSION $deps
+  - conda create --yes -n popgen_env python=$TRAVIS_PYTHON_VERSION PyYAML numpy scipy pandas
   - source activate popgen_env
   - pip install pytest
   - python setup.py install
