@@ -162,7 +162,15 @@ class Run_IPF(object):
         self.db = db
         self.ipf_config = self.scenario_config.parameters.ipf
         self.ipf_rounding = self.ipf_config.rounding_procedure
-        self.sample_geo_name = self.column_names_config.sample_geo
+        self.sample_geo_names = self.column_names_config.sample_geo
+        print type(self.sample_geo_names)
+        if self.sample_geo_names is None:
+            pass
+        elif isinstance(self.sample_geo_names, str):
+            self.sample_geo_names = [self.sample_geo_names]
+        else:
+            self.sample_geo_names = \
+                self.sample_geo_names.return_list()
 
     def run_ipf(self):
         region_marginals = self.db.region_marginals
@@ -224,8 +232,7 @@ class Run_IPF(object):
              seed_all,
              row_idx) = (self._create_ds_for_resolution_entity(
                          sample, entity, variable_names,
-                         variables_count, variables_cats,
-                         self.sample_geo_name))
+                         variables_count, variables_cats))
 
             (constraints,
              iters_convergence,
@@ -248,12 +255,13 @@ class Run_IPF(object):
                 iters_convergence_dict, average_diffs_dict)
 
     def _create_ds_for_resolution_entity(self, sample, entity, variable_names,
-                                         variables_count, variables_cats,
-                                         sample_geo_names):
-        ipf_ds_geo = IPF_DS(sample, entity, variable_names,
-                            variables_count, variables_cats,
-                            sample_geo_names)
-        seed_geo = ipf_ds_geo.get_seed()
+                                         variables_count, variables_cats):
+        seed_geo = {}
+        for sample_geo_name in self.sample_geo_names:
+            ipf_ds_geo = IPF_DS(sample, entity, variable_names,
+                                variables_count, variables_cats,
+                                sample_geo_name)
+            seed_geo[sample_geo_name] = ipf_ds_geo.get_seed()
 
         ipf_ds_all = IPF_DS(sample, entity, variable_names,
                             variables_count, variables_cats)
@@ -269,9 +277,54 @@ class Run_IPF(object):
         ipf_iters_convergence = pd.DataFrame(index=["iterations"])
         ipf_avgerage_diffs = pd.DataFrame(index=["average_percent_deviation"])
         for geo_id in geo_ids:
-            # print "\tIPF for Geo: %s for Entity: %s" % (geo_id, entity)
+            print "\tIPF for Geo: %s for Entity: %s" % (geo_id, entity)
             sample_geo_id = geo_corr_to_sample.loc[geo_id,
-                                                   self.sample_geo_name]
+                                                   self.sample_geo_names]
+            # print "\nHere are the sample geo ids"
+            # print sample_geo_id
+
+            seed_for_geo_id_all_sample_names = 0
+            for index, sample_geo_name in enumerate(self.sample_geo_names):
+                sample_geo_id_for_name = sample_geo_id[sample_geo_name]
+                seed_geo_for_name = seed_geo[sample_geo_name]
+                # print "\nfor sample_geo_name: {0}".format(sample_geo_name)
+                # print "corresponding ids:", sample_geo_id_for_name, type(sample_geo_id_for_name)
+
+                if isinstance(sample_geo_id_for_name, pd.Series):
+                    # print "Inside series"
+                    geo_id_for_name_filter = sample_geo_id_for_name > 0
+                    sample_geo_id_for_name = sample_geo_id_for_name[
+                        geo_id_for_name_filter]
+                    seed_geo_levels_list = range(len(seed_geo_for_name.index.names))
+                    seed_for_geo_id_for_name = (seed_geo_for_name.loc[sample_geo_id_for_name.tolist()]
+                                       .sum(level=seed_geo_levels_list[1:]))
+                elif sample_geo_id_for_name > 0:
+                    seed_for_geo_id_for_name = seed_geo_for_name.loc[sample_geo_id_for_name.tolist()]
+                elif sample_geo_id_for_name == -1:
+                    seed_for_geo_id_for_name = seed_all.copy()
+                else:
+                    raise Exception("Not series nor is it default value of -1")
+
+                if index == 0:
+                    seed_for_geo_id_all_sample_names = seed_for_geo_id_for_name[["frequency"]]
+                elif index > 0:
+                    seed_for_geo_id_all_sample_names = \
+                        seed_for_geo_id_all_sample_names.add(seed_for_geo_id_for_name[["frequency"]], fill_value=0)
+
+                # print seed_for_geo_id_for_name.head()
+                # print "------------------------------------------"
+            # print seed_for_geo_id_all_sample_names.head()
+            seed_for_geo_id_all_sample_names.reset_index(inplace=True)
+            groupby_columns = ["entity"] + variable_names
+            seed_for_geo_id_all_sample_names.set_index(groupby_columns, inplace=True)
+            # print "_______"
+            # print "after reseeding"
+            # print seed_for_geo_id_all_sample_names.head()
+            # print seed_for_geo_id_all_sample_names.shape
+            # print seed_all.shape
+
+            """
+            # Old Implementation
             if isinstance(sample_geo_id, pd.Series):
                 seed_geo_levels_list = range(len(seed_geo.index.names))
                 seed_for_geo_id = (seed_geo.loc[sample_geo_id.tolist()]
@@ -290,9 +343,10 @@ class Run_IPF(object):
             # print seed_for_geo_id
             # print "This is the sample geo id"
             # raw_input()
+            """
 
             marginals_geo = marginals.loc[geo_id]
-            ipf_obj_geo = IPF(seed_all, seed_for_geo_id, row_idx,
+            ipf_obj_geo = IPF(seed_all, seed_for_geo_id_all_sample_names, row_idx,
                               marginals_geo, self.ipf_config,
                               variable_names, variables_cats,
                               variables_cats_count)
@@ -311,8 +365,9 @@ class Run_IPF(object):
                                 """Needs troubleshooting""")
 
             # ipf_results[geo_id] = ipf_results_geo["frequency"]
+            # print ipf_obj_geo.frequencies.shape
             # raw_input("IPF for Geo: %s for Entity: %s complete"
-            #          % (geo_id, self.entity))
+            #          % (geo_id, entity))
         # print ipf_iters_convergence.T
         # print ipf_avgerage_diffs.T
         # raw_input("IPF Results")

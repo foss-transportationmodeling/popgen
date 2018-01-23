@@ -80,8 +80,10 @@ class DB(object):
 
     def get_geo_ids_for_region(self, region_id):
         geo_name = self._inputs_config.column_names.geo
-        return (
-            self.geo["region_to_geo"].loc[region_id, geo_name].copy().tolist())
+        geo_ids = self.geo["region_to_geo"].loc[region_id, geo_name].copy().tolist()
+        if not isinstance(geo_ids, list):
+            geo_ids = [geo_ids]
+        return geo_ids
 
     def enumerate_geo_ids_for_scenario(self, scenario_config):
         try:
