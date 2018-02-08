@@ -125,7 +125,7 @@ class Syn_Population(object):
         sample_list = [self.db.sample[entity]
                        for entity in entities]
         stacked_sample = pd.concat(sample_list).fillna(0)
-        stacked_sample.sort(inplace=True)
+        stacked_sample.sort_index(inplace=True)
         return stacked_sample
 
     def add_records(self):
@@ -214,13 +214,13 @@ class Syn_Population(object):
         # self.pop_syn_data["housing"].reset_index(inplace=True)
         self.pop_syn_data["housing"].set_index(
             self.pop_syn_housing_matching_id_columns, inplace=True, drop=False)
-        self.pop_syn_data["housing"].sort(inplace=True)
+        self.pop_syn_data["housing"].sort_index(inplace=True)
 
         # self.pop_syn_data["person"].reset_index(inplace=True)
         self.pop_syn_data["person"].set_index(
             self.pop_syn_person_matching_id_columns, inplace=True,
             drop=False)
-        self.pop_syn_data["person"].sort(inplace=True)
+        self.pop_syn_data["person"].sort_index(inplace=True)
         # print "Time elapsed for index is : %.4f" % (time.time() - t)
 
     def export_outputs(self):
@@ -318,7 +318,7 @@ class Syn_Population(object):
             filepath = os.path.join(self.outputlocation, filename)
             # self.pop_syn_data[entity_type].to_csv(
             #    filepath, sep=self.filetype_sep_dict[filetype], index=False)
-            self.pop_syn_data[entity_type].sort(
+            self.pop_syn_data[entity_type].sort_values(
                 sort_columns, inplace=True)
             self.pop_syn_data[entity_type].reset_index(drop=True, inplace=True)
             self.pop_syn_data[entity_type].index.name = (
@@ -393,7 +393,7 @@ class Syn_Population(object):
         stacked_marginal.index.name = "categories"
         stacked_marginal.reset_index(inplace=True)
         stacked_marginal.set_index(["name", "categories"], inplace=True)
-        stacked_marginal.sort(inplace=True)  # Sort by row indices
+        stacked_marginal.sort_index(inplace=True)  # Sort by row indices
         return stacked_marginal.T
 
     def _report_summary(self, geo_id_rows_syn, geo_id_frequencies,
