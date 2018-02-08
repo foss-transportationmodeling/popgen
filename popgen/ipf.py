@@ -57,6 +57,8 @@ class IPF(object):
         self.archive_performance_frequency = (
             self.ipf_config.archive_performance_frequency)
         self.average_diff_iters = []
+        self.average_diff_archive = []
+
         self.iter_convergence = None
 
     def run_ipf(self):
@@ -71,11 +73,16 @@ class IPF(object):
             # performance measures are stored as a parameter that is
             # specified by the user
 
-            if (c_iter % self.archive_performance_frequency) == 0:
-                if self._check_convergence():
-                    # print "\t\t\tConvergence achieved in %d iter" % (c_iter)
-                    self.iter_convergence = c_iter
-                    break
+            (converged, average_diff) = self._check_convergence()
+
+            if ((self.archive_performance_frequency > 0 )&
+                ((c_iter % self.archive_performance_frequency) == 0)):
+                self.average_diff_archive.append(average_diff)
+
+            if converged:
+                # print "\t\t\tConvergence achieved in %d iter" % (c_iter)
+                self.iter_convergence = c_iter
+                break
 
     def _correct_zero_cell_issue(self):
         if self.seed.shape[0] != self.seed_all.shape[0]:
@@ -123,8 +130,8 @@ class IPF(object):
         if len(self.average_diff_iters) > 1:
             if (np.abs(self.average_diff_iters[-1] -
                        self.average_diff_iters[-2]) < self.ipf_tolerance):
-                return True
-        return False
+                return True, average_diff
+        return False, average_diff
 
     def _print_marginals(self):
         for var in self.variable_names:
@@ -225,6 +232,8 @@ class Run_IPF(object):
 
             variables_cats = (self.db.return_variables_cats(entity,
                                                             variable_names))
+            print "\t\t\t", variable_names
+            print "\t\t\t", variables_cats
             variables_count = len(variable_names)
             variables_cats_count = sum([len(cats) for cats in
                                         variables_cats.values()])
@@ -277,7 +286,7 @@ class Run_IPF(object):
         ipf_iters_convergence = pd.DataFrame(index=["iterations"])
         ipf_avgerage_diffs = pd.DataFrame(index=["average_percent_deviation"])
         for geo_id in geo_ids:
-            print "\tIPF for Geo: %s for Entity: %s" % (geo_id, entity)
+            # print "\tIPF for Geo: %s for Entity: %s" % (geo_id, entity)
             sample_geo_id = geo_corr_to_sample.loc[geo_id,
                                                    self.sample_geo_names]
             # print "\nHere are the sample geo ids"
