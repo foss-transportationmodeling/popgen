@@ -1,6 +1,6 @@
 project:
  name: example
- location: ../tutorials/1_basic_popgen_setup/
+ location: .
  inputs:
   entities: [household, person]
   housing_entities: [household]
@@ -43,6 +43,7 @@ project:
       rounding_procedure: bucket
       archive_performance_frequency: 1
      reweighting:
+      ds_format: full
       procedure: ipu
       tolerance: 0.0001
       inner_iterations: 1
