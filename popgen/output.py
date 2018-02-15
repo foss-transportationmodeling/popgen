@@ -159,8 +159,7 @@ class Syn_Population(object):
     def _get_stacked_geo_for_geo_id(self, geo_id, geo_id_rows_syn):
         geo_id_pop_syn = self.geo_stacked.take(geo_id_rows_syn).copy()
         geo_id_pop_syn[self.geo_name] = geo_id
-        # print "\trows", geo_id_pop_syn.shape
-        return geo_id_pop_syn
+        return pd.DataFrame(geo_id_pop_syn[self.geo_name])
 
     def _get_housing_data_for_indexes(self, geo_id_pop_syn):
         housing_data = (
@@ -183,6 +182,8 @@ class Syn_Population(object):
 
     def _stack_records(self):
         t = time.time()
+        # for key, rows_syn in self.pop_rows_syn_dict.iteritems():
+        #     print key, rows_syn.shape
         self.pop_syn = pd.concat(
             self.pop_rows_syn_dict.values(), copy=False)
         # self.pop_syn_data["housing"] = pd.concat(
