@@ -1,12 +1,8 @@
 import numpy as np
 import pandas as pd
-
 import time
-
 from scipy.optimize import fsolve, newton
-
-# from sympy.abc import x as root
-# from sympy import solve
+from config import ConfigError
 
 
 # TODO: Move all DS processing to Syn_Population Class
@@ -84,8 +80,12 @@ class Run_Reweighting(object):
             self.scenario_config.parameters.reweighting.procedure)
         self.tolerance = (
             self.scenario_config.parameters.reweighting.tolerance)
-        self.ds_format = (
-            self.scenario_config.parameters.reweighting.ds_format)
+        try:
+            self.ds_format = (
+                self.scenario_config.parameters.reweighting.ds_format)
+        except ConfigError, e:
+            print e
+            self.ds_format = "full"
 
     def create_ds(self):
         region_controls_config = self.scenario_config.control_variables.region
