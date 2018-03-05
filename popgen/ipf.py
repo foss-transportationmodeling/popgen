@@ -1,7 +1,11 @@
 import copy
+import time
 
 import numpy as np
 import pandas as pd
+
+from reweighting import Run_Reweighting
+from config import ConfigError
 
 
 # TODO: Move all DS processing in the Syn_Population Class
@@ -160,14 +164,21 @@ class IPF(object):
 
 
 class Run_IPF(object):
-    def __init__(self, entities, housing_entities,
+    def __init__(self, entities, housing_entities, person_entities,
                  column_names_config, scenario_config, db):
         self.entities = entities
         self.housing_entities = housing_entities
+        self.person_entities = person_entities
         self.column_names_config = column_names_config
         self.scenario_config = scenario_config
         self.db = db
         self.ipf_config = self.scenario_config.parameters.ipf
+        try:
+            self.hadj_weighting_config = \
+                self.ipf_config.adjust_household_ipf_wrt_person_total
+        except ConfigError, e:
+            print e
+            self.hadj_weighting_config = None
         self.ipf_rounding = self.ipf_config.rounding_procedure
         self.sample_geo_names = self.column_names_config.sample_geo
         print type(self.sample_geo_names)
@@ -207,6 +218,9 @@ class Run_IPF(object):
                                          geo_ids, geo_to_sample))
         self.geo_columns_dict = (self._get_columns_constraints_dict(
                                  self.geo_constraints_dict))
+
+        if self.hadj_weighting_config is not None:
+            self._run_weighting_to_adjust_household_ipf_wrt_person_total()
 
         if self.ipf_rounding == "bucket":
             self.geo_frequencies = (self._get_frequencies_for_resolution(
@@ -409,6 +423,24 @@ class Run_IPF(object):
                                                 .index.values.tolist())
         # print columns_constraints_dict
         return columns_constraints_dict
+
+    def _run_weighting_to_adjust_household_ipf_wrt_person_total(self):
+        t = time.time()
+        geo_controls_config = self.scenario_config.control_variables.geo
+        self.run_reweighting_obj = Run_Reweighting(
+            self.entities, self.housing_entities, self.person_entities,
+            self.column_names_config,
+            self.scenario_config, self.db,
+            sample_geo_names=self.sample_geo_names,
+            household_size_adjustment=False)
+        self.run_reweighting_obj.create_ds()
+        # region_constraints are being set to zero because in this part,
+        # we do not need to consider them
+        self.run_reweighting_obj.run_reweighting(
+            region_constraints=None,
+            geo_constraints=self.geo_constraints)
+        print "Weighting for adjusting household frequencies completed in: %.4f" % (time.time() - t)
+        raw_input()
 
     def _get_frequencies_for_resolution(self, geo_ids, constraints_dict,
                                         procedure="bucket"):

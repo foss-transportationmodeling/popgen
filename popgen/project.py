@@ -81,6 +81,7 @@ class Scenario(object):
     def _run_ipf(self):
         self.run_ipf_obj = Run_IPF(self.entities,
                                    self.housing_entities,
+                                   self.person_entities,
                                    self.column_names_config,
                                    self.scenario_config, self.db)
         self.run_ipf_obj.run_ipf()
@@ -92,7 +93,9 @@ class Scenario(object):
         #     self._run_ipu()
         # def _run_ipu(self):
         self.run_reweighting_obj = Run_Reweighting(
-            self.entities, self.column_names_config,
+            self.entities,
+            self.housing_entities, self.person_entities,
+            self.column_names_config,
             self.scenario_config, self.db)
         self.run_reweighting_obj.create_ds()
         self.run_reweighting_obj.run_reweighting(
@@ -139,7 +142,7 @@ if __name__ == "__main__":
     from data import DB
 
     t = time.time()
-    p_obj = Project("../tutorials/1_basic_popgen_setup/configuration.yaml")
+    p_obj = Project("/Users/kkonduri/Google Drive/misc/HW_1_bmc_taz_2012_input_files/configuration_new.yaml")
     p_obj.load_project()
     p_obj.run_scenarios()
     print "Time it took: %.4f" % (time.time() - t)

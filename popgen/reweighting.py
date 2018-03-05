@@ -10,7 +10,8 @@ class Reweighting_DS(object):
     def __init__(self, ds_format="full"):
         self.ds_format = ds_format
 
-    def get_sample_restructure(self, entity, sample, variable_names, hid_name):
+    def get_sample_restructure(self,
+            entity, sample, variable_names, hid_name, sample_geo_names=None):
         sample["entity"] = entity
         groupby_columns = [hid_name, "entity"] + variable_names
         columns_count = len(groupby_columns)
@@ -19,6 +20,10 @@ class Reweighting_DS(object):
                            .unstack(level=range(1, columns_count))
                            .fillna(0)
                            )
+        if sample_geo_names is not None:
+            sample_restruct = sample_restruct.join(
+                sample[sample_geo_names])
+        print sample_restruct.head()
         return sample_restruct
 
     def get_row_idx(self, sample_restruct):
@@ -39,6 +44,9 @@ class Reweighting_DS(object):
         return (row_idx, contrib)
 
     def get_stacked_sample_restruct(self, sample_restruct_list):
+
+        stacked_sample = pd.concat(sample_restruct_list, axis=1)
+        """
         if len(sample_restruct_list) == 0:
             return None
         elif len(sample_restruct_list) == 1:
@@ -55,17 +63,28 @@ class Reweighting_DS(object):
             else:
                 stacked_sample = sample_restruct.join(stacked_sample,
                                                       how="outer").fillna(0)
+
+        """
         stacked_sample.sort_index(inplace=True)  # Sort by row indices
         stacked_sample.sort_index(axis=1,
                                   inplace=True)  # Sort columns alphabetically
         stacked_sample.columns = pd.Index(stacked_sample.columns,
                                           tuplelize_cols=False)
+
+        print stacked_sample.head()
+        raw_input()
+
         return stacked_sample
 
 
 class Run_Reweighting(object):
-    def __init__(self, entities, column_names_config, scenario_config, db):
+    def __init__(self, entities, housing_entities, person_entities,
+                 column_names_config, scenario_config, db,
+                 sample_geo_names=None,
+                 household_size_adjustment=False):
         self.entities = entities
+        self.housing_entities = housing_entities
+        self.person_entities = person_entities
         self.column_names_config = column_names_config
         self.scenario_config = scenario_config
         self.db = db
@@ -86,13 +105,25 @@ class Run_Reweighting(object):
         except ConfigError, e:
             print e
             self.ds_format = "full"
+        self.household_size_adjustment = household_size_adjustment
+
+        self.sample_geo_names = sample_geo_names
+
+        if self.household_size_adjustment is True:
+            self.without_region = True
+            self.without_houseid = True
+        else:
+            self.without_region = False
+            self.without_houseid = False
 
     def create_ds(self):
-        region_controls_config = self.scenario_config.control_variables.region
-        (self.region_stacked,
-         self.region_row_idx,
-         self.region_contrib) = (self._create_ds_for_resolution(
-                                 region_controls_config))
+        if self.without_region is False:
+            region_controls_config = self.scenario_config.control_variables.region
+            (self.region_stacked,
+             self.region_row_idx,
+             self.region_contrib) = (self._create_ds_for_resolution(
+                                     region_controls_config))
+
         geo_controls_config = self.scenario_config.control_variables.geo
         (self.geo_stacked,
          self.geo_row_idx,
@@ -102,27 +133,123 @@ class Run_Reweighting(object):
         self._create_reweighting_performance_df()
 
     def _create_ds_for_resolution(self, control_variables_config):
-        sample_restruct_list = []
-        reweighting_ds_obj = Reweighting_DS(self.ds_format)
+        if self.without_houseid is True:
+            (stacked_sample, row_idx, contrib) = \
+                self._create_ds_aggregate(control_variables_config)
+        else:
+            (stacked_sample, row_idx, contrib) = \
+                self._create_ds_disaggregate(control_variables_config)
+        return (stacked_sample, row_idx, contrib)
 
-        hid_name = self.column_names_config.hid
+    def _create_ds_aggregate(self, control_variables_config):
+        raise Exception("This is aggregate DS for Weighting")
 
-        for entity in self.entities:
-            variable_names = (control_variables_config[entity]).return_list()
-            sample = self.db.sample[entity]
-            sample_restruct = reweighting_ds_obj.get_sample_restructure(
-                entity, sample, variable_names, hid_name)
-            sample_restruct_list.append(sample_restruct)
+    def _create_ds_disaggregate(self, control_variables_config):
 
-        stacked_sample = (reweighting_ds_obj.get_stacked_sample_restruct(
-                          sample_restruct_list))
+        # hid_name = self.column_names_config.hid
+
+        # for entity in self.entities:
+        #     if entity in self.housing_entities:
+        #        sample_geo_names = self.sample_geo_names
+        #    else:
+        #        sample_geo_names = None
+        #    variable_names = (control_variables_config[entity]).return_list()
+        #    sample = self.db.sample[entity]
+        #    sample_restruct = reweighting_ds_obj.get_sample_restructure(
+        #        entity, sample, variable_names, hid_name, sample_geo_names)
+        #    sample_restruct_list.append(sample_restruct)
+
+        #stacked_sample = (reweighting_ds_obj.get_stacked_sample_restruct(
+        #                  sample_restruct_list))
+        housing_stacked_sample = \
+            self._create_restruct_combined_across_entities(
+                self.housing_entities, control_variables_config)
+
+        person_stacked_sample = \
+            self._create_restruct_combined_across_entities(
+                self.person_entities, control_variables_config)
+
+        stacked_sample = housing_stacked_sample.join(person_stacked_sample)
+
         row_idx, contrib = reweighting_ds_obj.get_row_idx(stacked_sample)
         # print "Sample stacked\n", stacked_sample[:10]
         return (stacked_sample, row_idx, contrib)
 
+    def _create_restruct_combined_across_entities(self,
+            entities, control_variables_config):
+
+        reweighting_ds_obj = Reweighting_DS(
+            self.ds_format)
+
+        sample_restruct_list = []
+        hid_name = self.column_names_config.hid
+        for entity in self.entities:
+            if entity in self.housing_entities:
+                sample_geo_names = self.sample_geo_names
+            else:
+                sample_geo_names = None
+            variable_names = (control_variables_config[entity]).return_list()
+            sample = self.db.sample[entity]
+            sample_restruct = reweighting_ds_obj.get_sample_restructure(
+                entity, sample, variable_names, hid_name, sample_geo_names)
+            sample_restruct_list.append(sample_restruct)
+
+        stacked_sample = (reweighting_ds_obj.get_stacked_sample_restruct(
+                          sample_restruct_list))
+        return stacked_sample
+
+
     def _create_sample_weights_df(self):
-        self.region_sample_weights = (pd.DataFrame(
-                                      index=self.region_stacked.index))
+        if self.without_region is False:
+            self.region_sample_weights = (pd.DataFrame(
+                                          index=self.region_stacked.index))
+        else:
+            self.region_sample_weights = (pd.DataFrame(
+                                          index=self.geo_stacked.index))
+
+    def _create_intermediate_sample_weights_df(self, region_id):
+        geo_ids = self.db.get_geo_ids_for_region(region_id)
+        len_geo_ids = len(geo_ids)
+
+
+        if self.without_region is False:
+            stacked = self.region_stacked
+        else:
+            stacked = self.geo_stacked
+
+        sample_weights = np.ones((stacked.shape[0],
+                                  len_geo_ids),
+                                  dtype=float, order="C")
+
+        if self.sample_geo_names is None:
+            return sample_weights
+
+        geo_corr_to_sample = self.db.geo["geo_to_sample"]
+
+        for index_geo_id, geo_id in enumerate(geo_ids):
+            for index_sample_geo_name, sample_geo_name in enumerate(
+                    self.sample_geo_names):
+                sample_geo_ids = \
+                    geo_corr_to_sample.loc[geo_id, sample_geo_name]
+
+                if isinstance(sample_geo_ids, pd.Series):
+                    sample_geo_ids = sample_geo_ids.values()
+                else:
+                    sample_geo_ids = [sample_geo_ids]
+
+                filter_for_sample_geo_name = \
+                    stacked[sample_geo_name].isin(sample_geo_ids)
+
+                if index_sample_geo_name == 0:
+                    filter_geo_id = filter_for_sample_geo_name
+                else:
+                    filter_geo_id = pd.logical_and(
+                        filter_geo_id, filter_for_sample_geo_name)
+
+            sample_weights[:, index_geo_id] = \
+                filter_geo_id.values().astype(float)
+
+        return sample_weights
 
     def _create_reweighting_performance_df(self):
         # TODO: In the future change the frequency at which
@@ -163,11 +290,11 @@ class Run_Reweighting(object):
         # raw_input()
         for region_id in self.db.region_ids:
             print ("\t%s for Region: %d" % (self.procedure, region_id))
+
+            sample_weights = self._create_intermediate_sample_weights_df(region_id)
+
             geo_ids = self.db.get_geo_ids_for_region(region_id)
-            len_geo_ids = len(geo_ids)
-            sample_weights = np.ones((self.region_stacked.shape[0],
-                                      len_geo_ids),
-                                     dtype=float, order="C")
+
             # print "Outer iterations", self.outer_iterations
             for iter in range(self.outer_iterations):
                 t = time.time()
