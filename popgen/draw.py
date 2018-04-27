@@ -30,24 +30,31 @@ class Draw_Population(object):
         np.random.seed(self.seed)
         # print "Drawing Households"
         for geo_id in self.geo_ids:
-            # print "For geo:", geo_id
+            # print "\tFor geo:", geo_id
             geo_sample_weights = self.region_sample_weights.loc[:, geo_id]
             geo_cumulative_weights = (self._return_cumulative_probability(
                                       geo_sample_weights))
-            geo_id_frequencies = self.geo_frequencies.loc[geo_id, :]
-            geo_id_constraints = self.geo_constraints.loc[geo_id, :]
+            valid_constraints = self.geo_constraints.loc[geo_id, :] > 0
+            geo_id_frequencies = self.geo_frequencies.loc[geo_id, valid_constraints]
+            geo_id_constraints = self.geo_constraints.loc[geo_id, valid_constraints]
+
+            # print "filter stats: ", valid_constraints.sum(), self.geo_frequencies.loc[geo_id, valid_constraints].sum(), self.geo_frequencies.loc[geo_id, ~valid_constraints].sum()
 
             if geo_id_frequencies.sum() == 0:
                 continue
 
             p_value_max = -1
             for iter in range(self.iterations):
-                # print "Iter is:", iter, self.iterations
+                # print "\t\tIter is:", iter, self.iterations
                 seed = self.seed + iter
                 geo_id_rows_syn = self._pick_households(
                     geo_id_frequencies, geo_cumulative_weights)
                 stat, p_value = self._measure_match(
                     geo_id_rows_syn, geo_id_constraints)
+                # print "\t\tConstraint:", geo_id_constraints
+                # print "\t\tSyn Rows", geo_id_rows_syn
+                # print "\t\t\t p-value:", p_value
+                # raw_input()
                 if p_value > self.pvalue_tolerance:
                     (p_value_max, geo_id_rows_syn_max,
                      iter_max, stat_max, max_found) = (p_value,
@@ -88,7 +95,7 @@ class Draw_Population(object):
         last = 0
         rand_numbers = np.random.random(geo_id_frequencies.sum().astype(int))
         list_rows_syn_subpop = []
-        for column in self.geo_frequencies.columns.values:
+        for column in geo_id_frequencies.index.tolist():
             rows = self.geo_row_idx[column]
             column_frequency = geo_id_frequencies[column].astype(int)
             column_bins = np.searchsorted(geo_cumulative_weights[column],
@@ -109,6 +116,8 @@ class Draw_Population(object):
                                         columns=["synthetic_count"])
         geo_id_synthetic = (
             geo_id_synthetic.join(geo_id_constraints, how="inner"))
+        # print "This is inside measure match"
+        # print geo_id_synthetic
         stat, p_value = stats.chisquare(geo_id_synthetic["synthetic_count"],
                                         geo_id_synthetic["constraint"])
         return stat, p_value

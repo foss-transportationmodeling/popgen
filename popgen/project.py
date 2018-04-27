@@ -3,7 +3,7 @@ import os
 import time
 import yaml
 
-from config import Config
+from config import Config, ConfigError
 from data import DB
 from ipf import Run_IPF
 from reweighting import Run_Reweighting, Reweighting_DS
@@ -79,28 +79,52 @@ class Scenario(object):
         self.db.enumerate_geo_ids_for_scenario(self.scenario_config)
 
     def _run_ipf(self):
+        ipf_config = self.scenario_config.parameters.ipf
+        try:
+            self.adjust_household_ipf_config = \
+                ipf_config.adjust_household_ipf_wrt_person_total
+        except ConfigError, e:
+            print e
+            self.adjust_household_ipf_config = None
+
+
         self.run_ipf_obj = Run_IPF(self.entities,
                                    self.housing_entities,
                                    self.person_entities,
                                    self.column_names_config,
                                    self.scenario_config, self.db)
         self.run_ipf_obj.run_ipf()
+        if self.adjust_household_ipf_config is None:
+            self.geo_constraints = self.run_ipf_obj.geo_constraints
+        else:
+            self.geo_constraints = self.run_ipf_obj.geo_constraints_adjusted_household
         print "IPF completed in: %.4f" % (time.time() - self.t)
 
     def _run_weighting(self):
+        control_variables_config = self.scenario_config.control_variables
         reweighting_config = self.scenario_config.parameters.reweighting
-        # if reweighting_config.procedure == "ipu":
-        #     self._run_ipu()
-        # def _run_ipu(self):
+
+        try:
+            filter_based_on_puma = reweighting_config.filter_based_on_puma
+        except Exception, e:
+            print e
+            filter_based_on_puma = 0
+
         self.run_reweighting_obj = Run_Reweighting(
             self.entities,
             self.housing_entities, self.person_entities,
             self.column_names_config,
-            self.scenario_config, self.db)
+            reweighting_config, control_variables_config,
+            self.db,
+            self.adjust_household_ipf_config)
         self.run_reweighting_obj.create_ds()
+
         self.run_reweighting_obj.run_reweighting(
             self.run_ipf_obj.region_constraints,
-            self.run_ipf_obj.geo_constraints)
+            self.geo_constraints,
+            filter_based_on_puma=filter_based_on_puma)
+
+
         print "Reweighting completed in: %.4f" % (time.time() - self.t)
 
     def _draw_sample(self):
@@ -108,7 +132,7 @@ class Scenario(object):
             self.scenario_config, self.db.geo_ids,
             self.run_reweighting_obj.geo_row_idx,
             self.run_ipf_obj.geo_frequencies,
-            self.run_ipf_obj.geo_constraints,
+            self.geo_constraints,
             self.run_reweighting_obj.geo_stacked,
             self.run_reweighting_obj.region_sample_weights)
         self.draw_population_obj.draw_population()

@@ -57,13 +57,22 @@ class DB(object):
         for item in config_dict:
             filename = config_dict[item]
             full_location = os.path.join(self.location, filename)
-            data_dict[item] = pd.read_csv(full_location, index_col=0,
-                                          header=header)
-            data_dict[item].loc[:,
-                                data_dict[item].index.name] = (data_dict[item]
-                                                               .index.values)
-            # print data_dict[item]
-        # print data_dict.keys()
+            data = pd.read_csv(full_location, index_col=0, header=header)
+            data.loc[:, data.index.name] = data.index.values
+            data_dict[item] = data
+
+            if header != 0 :
+                levels = []
+                for i in range(0, len(header)):
+                    values_converted = []
+                    for value in data.columns.levels[i].values:
+                        try:
+                            values_converted.append(int(value))
+                        except ValueError, e:
+                            values_converted.append(value)
+                    levels.append(values_converted)
+                data.columns.set_levels(levels, inplace=True)
+
         return data_dict
 
     def _enumerate_geo_ids(self):

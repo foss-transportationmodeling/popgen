@@ -45,7 +45,7 @@ class IPF_DS(object):
 class IPF(object):
     def __init__(self, seed_all, seed, idx, marginals, ipf_config,
                  variable_names, variables_cats, variables_cats_count,
-                 ):
+                 adjust_household_filter_based_on_puma):
         self.seed_all = seed_all
         self.seed = seed
         self.idx = idx
@@ -54,6 +54,8 @@ class IPF(object):
         self.variable_names = variable_names
         self.variables_cats = variables_cats
         self.variables_cats_count = variables_cats_count
+        self.adjust_household_filter_based_on_puma = \
+            adjust_household_filter_based_on_puma
         self.ipf_iters = self.ipf_config.iterations
         self.ipf_tolerance = self.ipf_config.tolerance
         self.zero_marginal_correction = (
@@ -89,17 +91,23 @@ class IPF(object):
                 break
 
     def _correct_zero_cell_issue(self):
+        # print self.seed_all.index.difference(self.seed.index)
+
         if self.seed.shape[0] != self.seed_all.shape[0]:
             self.seed_all["prob"] = (self.seed["frequency"] /
                                      self.seed["frequency"].sum())
-            null_rows = self.seed_all["prob"].isnull()
-            self.seed_all["prob_all"] = (self.seed_all["frequency"] /
-                                         self.seed_all["frequency"].sum())
-            self.seed_all.loc[null_rows, "prob"] = (
-                self.seed_all.loc[null_rows, "prob_all"])
-            borrowed_sum = self.seed_all.loc[null_rows, "prob"].sum()
-            adjustment = 1 - borrowed_sum
-            self.seed_all.loc[~null_rows, "prob"] *= adjustment
+
+            if self.adjust_household_filter_based_on_puma == 1:
+                self.seed_all.fillna(0., inplace=True)
+            else:
+                null_rows = self.seed_all["prob"].isnull()
+                self.seed_all["prob_all"] = (self.seed_all["frequency"] /
+                                             self.seed_all["frequency"].sum())
+                self.seed_all.loc[null_rows, "prob"] = (
+                    self.seed_all.loc[null_rows,    "prob_all"])
+                borrowed_sum = self.seed_all.loc[null_rows, "prob"].sum()
+                adjustment = 1 - borrowed_sum
+                self.seed_all.loc[~null_rows, "prob"] *= adjustment
 
             return self.seed_all["prob"].copy().values
         else:
@@ -115,7 +123,7 @@ class IPF(object):
                 # implementation it is being read as a "alpha" only
                 # the below indexing for marginals is just a hack ... need
                 # to replace
-                marginal = self.marginals.loc[(var, "%s" % cat)]
+                marginal = self.marginals.loc[(var, cat)]
                 if marginal == 0:
                     marginal = self.zero_marginal_correction
 
@@ -153,7 +161,7 @@ class IPF(object):
                 row_subset = self.idx[(var, cat)]
                 adjusted_frequency = self.frequencies[row_subset].sum()
                 # TODO: See above to-do same fix here
-                original_frequency = self.marginals.loc[(var, "%s" % cat)]
+                original_frequency = self.marginals.loc[(var, cat)]
                 if original_frequency == 0:
                     original_frequency = self.zero_marginal_correction
             diff_sum += (np.abs(adjusted_frequency - original_frequency) /
@@ -174,14 +182,22 @@ class Run_IPF(object):
         self.db = db
         self.ipf_config = self.scenario_config.parameters.ipf
         try:
-            self.hadj_weighting_config = \
+            self.adjust_household_ipf_config = \
                 self.ipf_config.adjust_household_ipf_wrt_person_total
         except ConfigError, e:
             print e
-            self.hadj_weighting_config = None
+            self.adjust_household_ipf_config = None
+
+        try:
+            self.adjust_household_filter_based_on_puma = \
+                self.adjust_household_ipf_config.filter_based_on_puma
+        except Exception, e:
+            print e
+            self.adjust_household_filter_based_on_puma = 0
+
         self.ipf_rounding = self.ipf_config.rounding_procedure
         self.sample_geo_names = self.column_names_config.sample_geo
-        print type(self.sample_geo_names)
+
         if self.sample_geo_names is None:
             pass
         elif isinstance(self.sample_geo_names, str):
@@ -219,13 +235,35 @@ class Run_IPF(object):
         self.geo_columns_dict = (self._get_columns_constraints_dict(
                                  self.geo_constraints_dict))
 
-        if self.hadj_weighting_config is not None:
-            self._run_weighting_to_adjust_household_ipf_wrt_person_total()
+        # self.geo_constraints.to_csv("C:\\Users\\kkonduri\\Google Drive\\misc\\HW_1_bmc_taz_2012_input_files\\geo_constraints.csv")
+        # raw_input()
+
+        if self.adjust_household_ipf_config is not None:
+            self.geo_constraints_adjusted_household = \
+                self._run_weighting_to_adjust_household_ipf_wrt_person_total()
+            # print "Sum before adjusting"
+            # print self.geo_constraints.sum(axis=0).sum()
+
+            match_housing_total = \
+                self.adjust_household_ipf_config.match_housing_total
+
+            # print "Sum after adjusting"
+            # print self.geo_constraints_adjusted_household.sum(axis=0).sum()
+
+            # print match_housing_total, "-------"
+
+            if match_housing_total == 1:
+                self._fix_geo_constraints_to_match_housing_total(geo_ids)
+
+            # print "Sum after matching"
+            # print self.geo_constraints_adjusted_household.sum(axis=0).sum()
+
+            # raw_input()
 
         if self.ipf_rounding == "bucket":
             self.geo_frequencies = (self._get_frequencies_for_resolution(
-                                    geo_ids, self.geo_constraints_dict,
-                                    "bucket"))
+                                    geo_ids, "bucket"))
+
 
     def _run_ipf_for_resolution(self, marginals_at_resolution,
                                 control_variables_config,
@@ -372,7 +410,8 @@ class Run_IPF(object):
             ipf_obj_geo = IPF(seed_all, seed_for_geo_id_all_sample_names, row_idx,
                               marginals_geo, self.ipf_config,
                               variable_names, variables_cats,
-                              variables_cats_count)
+                              variables_cats_count,
+                              self.adjust_household_filter_based_on_puma)
             # ipf_obj_geo.correct_zero_cell_issue()
             # ipf_results_geo = ipf_obj_geo.run_ipf()
             ipf_obj_geo.run_ipf()
@@ -424,33 +463,156 @@ class Run_IPF(object):
         # print columns_constraints_dict
         return columns_constraints_dict
 
+
+    def _prepare_geo_constraints_to_adjust_household_ipf(self):
+        housing_constraints_list = []
+        for entity, constraint in self.geo_constraints_dict.iteritems():
+            if entity in self.housing_entities:
+                housing_constraints_list.append(constraint)
+
+        self.housing_geo_constraints = self._get_stacked_constraints(
+            housing_constraints_list)
+
+        person_constraints_list = []
+        for entity, constraint in self.geo_constraints_dict.iteritems():
+            if entity in self.person_entities:
+                person_constraints_list.append(constraint)
+
+        self.person_geo_constraints = self._get_stacked_constraints(
+            person_constraints_list)
+
+        for index, entity in enumerate(self.person_entities):
+            # print self.db.geo_marginals[entity].columns
+            person_total_marginal_variable = \
+                self.adjust_household_ipf_config.person_total_marginal_variable
+            if index == 0:
+                person_total = self.db.geo_marginals[entity].loc[
+                    :, [person_total_marginal_variable]]
+            else:
+                person_total = person_total + \
+                    self.db.geo_marginals[entity].loc[:, [person_total_marginal_variable]]
+
+        # print person_total.head()
+        new_columns = person_total.columns.droplevel(level=1)
+        # print new_columns
+        person_total.columns = new_columns
+
+        # print person_total.head()
+        self.housing_geo_constraints = self.housing_geo_constraints.join(person_total)
+
+        # print housing_geo_constraints.head()
+        # print housing_geo_constraints.columns
+        # raw_input()
+        # return housing_geo_constraints
+
     def _run_weighting_to_adjust_household_ipf_wrt_person_total(self):
+        print "Adjusting household type frequencies to correct for person total ... "
         t = time.time()
-        geo_controls_config = self.scenario_config.control_variables.geo
+
+        self._prepare_geo_constraints_to_adjust_household_ipf()
+
+        # geo_controls_config = self.scenario_config.control_variables.geo
+        control_variables_config = self.scenario_config.control_variables
+        # reweighting_config = \
+        #    self.scenario_config.parameters.ipf.adjust_household_ipf_wrt_person_total
         self.run_reweighting_obj = Run_Reweighting(
             self.entities, self.housing_entities, self.person_entities,
             self.column_names_config,
-            self.scenario_config, self.db,
-            sample_geo_names=self.sample_geo_names,
-            household_size_adjustment=False)
-        self.run_reweighting_obj.create_ds()
+            self.adjust_household_ipf_config,
+            control_variables_config, self.db,
+            adjust_household_ipf_config=self.adjust_household_ipf_config)
+        self.run_reweighting_obj.create_ds_for_adjust_household()
         # region_constraints are being set to zero because in this part,
         # we do not need to consider them
-        self.run_reweighting_obj.run_reweighting(
-            region_constraints=None,
-            geo_constraints=self.geo_constraints)
-        print "Weighting for adjusting household frequencies completed in: %.4f" % (time.time() - t)
-        raw_input()
 
-    def _get_frequencies_for_resolution(self, geo_ids, constraints_dict,
-                                        procedure="bucket"):
+        self.run_reweighting_obj.run_reweighting_adjust_household(
+            geo_constraints=self.housing_geo_constraints,
+            filter_based_on_puma=self.adjust_household_filter_based_on_puma)
+
+        housing_geo_constraints_adjusted_household = \
+            self.run_reweighting_obj.region_sample_weights.fillna(0)
+        housing_geo_constraints_adjusted_household = \
+            housing_geo_constraints_adjusted_household.transpose()
+        housing_geo_constraints_adjusted_household.columns = \
+            pd.Index(housing_geo_constraints_adjusted_household.columns,
+                     tuplelize_cols=False)
+        geo_constraints_adjusted_household = \
+            housing_geo_constraints_adjusted_household.join(
+                self.person_geo_constraints)
+        # print geo_constraints_adjusted_household
+        # print "Weighting for adjusting household frequencies completed in: %.4f" % (time.time() - t)
+        # raw_input()
+        return geo_constraints_adjusted_household
+
+    def _parse_geo_constraints_columns_by_entities(self, geo_constraints):
+        columns_dict = {}
+
+        for column in geo_constraints.columns.tolist():
+            # print column
+
+            if self.adjust_household_ipf_config is None:
+                entity = column[0]
+            else:
+                if isinstance(column[0], tuple):
+                    entity = column[0][0]
+                else:
+                    entity = column[0]
+            if entity in columns_dict.keys():
+                columns_dict[entity].append(column)
+            else:
+                columns_dict[entity] = [column]
+            # print "\t", entity
+        return columns_dict
+
+    def _fix_geo_constraints_to_match_housing_total(self, geo_ids):
+        columns_dict_original = self._parse_geo_constraints_columns_by_entities(
+            self.geo_constraints)
+
+        columns_dict_adjusted = self._parse_geo_constraints_columns_by_entities(
+            self.geo_constraints_adjusted_household)
+
+        for geo_id in geo_ids:
+            for entity in self.housing_entities:
+                total_housing_original = \
+                    self.geo_constraints.loc[
+                        geo_id, columns_dict_original[entity]].sum()
+
+                total_housing_adjusted = \
+                    self.geo_constraints_adjusted_household.loc[
+                        geo_id, columns_dict_adjusted[entity]].sum()
+
+                # print "Total original: {0} and adjusted: {1} for entity: {2}".format(
+                #    total_housing_original, total_housing_adjusted, entity)
+
+                if total_housing_adjusted > 0:
+                    correction = total_housing_original / total_housing_adjusted
+                    self.geo_constraints_adjusted_household.loc[
+                        geo_id, columns_dict_adjusted[entity]] *= correction
+                # else:
+                #    raw_input("Don't match here: {0} with original being:{1}".format(total_housing_adjusted, total_housing_original))
+
+    def _get_frequencies_for_resolution(self, geo_ids, procedure="bucket"):
         # TODO: Implemente other procedures for integerizing multiway freq
         frequencies_list = []
 
-        for entity in self.housing_entities:
-            print ("\tRounding frequencies for Entity: %s complete" % entity)
+        if self.adjust_household_ipf_config is None:
+            geo_constraints = self.geo_constraints.copy()
+        else:
+            geo_constraints = \
+                self.geo_constraints_adjusted_household.copy()
 
-            frequencies = constraints_dict[entity].copy()
+        columns_dict = self._parse_geo_constraints_columns_by_entities(
+            geo_constraints)
+
+        for entity in self.housing_entities:
+            # print ("\tRounding frequencies for Entity: %s complete" % entity)
+
+            columns_for_entity = columns_dict[entity]
+            frequencies = geo_constraints[columns_for_entity].T
+            # print ("Working on entity: {0} for columns: {1}".format(
+            #    entity, columns_for_entity))
+            # print frequencies
+            # print "Count before adjusting:{0}".format(frequencies.sum().sum())
 
             for geo_id in geo_ids:
                 # print ("Rounding Frequencies for Geo: %s for Entity: %s"
@@ -461,6 +623,12 @@ class Run_IPF(object):
                 accumulated_difference = 0
 
                 for frequency in frequency_geo:
+
+                    # This is to avoid invalid constraints from getting
+                    # a valid frequency
+                    # if frequency == 0:
+                    #    adjusted_frequency_geo.append(frequency)
+                    #    continue
                     frequency_int = np.floor(frequency)
                     frequency_dec = frequency - frequency_int
                     accumulated_difference += frequency_dec
@@ -470,6 +638,8 @@ class Run_IPF(object):
                 frequencies.loc[:, geo_id] = adjusted_frequency_geo
 
             frequencies_list.append(frequencies)
+            # print "Count after adjusting:{0}".format(frequencies.sum().sum())
+
         frequencies_resolution = (self._get_stacked_constraints(
                                   frequencies_list))
         return frequencies_resolution
