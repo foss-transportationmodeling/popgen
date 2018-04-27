@@ -490,7 +490,7 @@ class Run_Reweighting(object):
             if index_sample_geo_name == 0:
                 filter_geo_id = filter_for_sample_geo_name
             else:
-                filter_geo_id = pd.logical_and(
+                filter_geo_id = np.logical_and(
                     filter_geo_id, filter_for_sample_geo_name)
         return stacked_sample[filter_geo_id]
     """
@@ -806,10 +806,14 @@ class Run_Reweighting(object):
         for column in (constraints.index):
             contrib_list.append(contrib[column])
         contrib_matrix = np.array(contrib_list)
+        contrib_df = pd.DataFrame(contrib_matrix, columns=constraints.index.tolist())
+        contrib_df.to_csv("contrib_matrix.csv")
         constraints_array = constraints.values
 
         # sample_weights = np.linalg.lstsq(contrib_matrix, constraints_array)
         # print sample_weights
+
+        constraints.to_csv("{0}_constraints.csv".format(geo_id))
 
         from scipy.optimize import lsq_linear
         sample_weights2 = lsq_linear(
