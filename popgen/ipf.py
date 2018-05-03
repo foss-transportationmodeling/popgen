@@ -511,12 +511,7 @@ class Run_IPF(object):
 
         self._prepare_geo_constraints_to_adjust_household_ipf()
 
-        self.housing_geo_constraints.to_csv("housing_geo_constraints.csv")
-        self.housing_geo_constraints = \
-            self._convert_zero_constraints_to_small_value(
-                self.housing_geo_constraints)
-
-        self.housing_geo_constraints.to_csv("after_housing_geo_constraints.csv")
+        # self.housing_geo_constraints.to_csv("after_housing_geo_constraints.csv")
         # raw_input()
 
         # geo_controls_config = self.scenario_config.control_variables.geo
@@ -552,20 +547,6 @@ class Run_IPF(object):
         # raw_input()
 
         return geo_constraints_adjusted_household
-
-    def _convert_zero_constraints_to_small_value(self, constraints):
-        print constraints.head()
-        zero_cells = constraints < np.finfo(np.float64).tiny
-        print "Number of zero cells: {0}".format(zero_cells.sum().sum())
-
-        constraints[zero_cells] = np.finfo(np.float64).tiny
-
-        zero_cells = constraints < np.finfo(np.float64).tiny
-        print "Number of zero cells after: {0}".format(zero_cells.sum().sum())
-
-        # raw_input()
-
-        return constraints
 
     def _parse_geo_constraints_columns_by_entities(self, geo_constraints):
         columns_dict = {}
