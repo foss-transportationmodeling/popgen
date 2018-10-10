@@ -114,6 +114,9 @@ class Draw_Population(object):
         geo_id_synthetic = self.geo_stacked.take(geo_id_rows_syn).sum()
         geo_id_synthetic = pd.DataFrame(geo_id_synthetic,
                                         columns=["synthetic_count"])
+        # print geo_id_synthetic
+        geo_id_constraints.index = pd.Index(geo_id_constraints.index, tuplelize_cols=True)
+        # print geo_id_constraints
         geo_id_synthetic = (
             geo_id_synthetic.join(geo_id_constraints, how="inner"))
         # print "This is inside measure match"

@@ -166,7 +166,7 @@ if __name__ == "__main__":
     from data import DB
 
     t = time.time()
-    p_obj = Project("/Users/kkonduri/Google Drive/misc/HW_1_bmc_taz_2012_input_files/configuration_new.yaml")
+    p_obj = Project("c:\workspace\popgen_projects\ca_first_pass\ALL_New_2018-09-06 21-50-54 input_files\configuration_new_imp_all_with_adj.yaml")
     p_obj.load_project()
     p_obj.run_scenarios()
     print "Time it took: %.4f" % (time.time() - t)

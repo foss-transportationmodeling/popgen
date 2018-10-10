@@ -453,6 +453,7 @@ class Run_IPF(object):
 
         stacked_constraints.columns = pd.Index(stacked_constraints.columns,
                                                tuplelize_cols=False)
+        # stacked_constraints.to_csv("stacked_constraints.csv")
         return stacked_constraints
 
     def _get_columns_constraints_dict(self, constraints_dict):
@@ -545,7 +546,6 @@ class Run_IPF(object):
         # print geo_constraints_adjusted_household
         # print "Weighting for adjusting household frequencies completed in: %.4f" % (time.time() - t)
         # raw_input()
-
         return geo_constraints_adjusted_household
 
     def _parse_geo_constraints_columns_by_entities(self, geo_constraints):
@@ -605,6 +605,8 @@ class Run_IPF(object):
             geo_constraints = \
                 self.geo_constraints_adjusted_household.copy()
 
+        # geo_constraints.to_csv("geo_constraints.csv")
+
         columns_dict = self._parse_geo_constraints_columns_by_entities(
             geo_constraints)
 
@@ -646,4 +648,6 @@ class Run_IPF(object):
 
         frequencies_resolution = (self._get_stacked_constraints(
                                   frequencies_list))
+        # frequencies_resolution.to_csv("frequencies_resolution.csv")
+        # raw_input("Check files ...")
         return frequencies_resolution

@@ -458,7 +458,7 @@ class Run_Reweighting(object):
                     sample_geo_ids = [sample_geo_ids]
 
                 filter_for_sample_geo_name = \
-                    stacked[sample_geo_name].isin(sample_geo_ids)
+                    self.region_stacked[sample_geo_name].isin(sample_geo_ids)
 
                 if index_sample_geo_name == 0:
                     filter_geo_id = filter_for_sample_geo_name
@@ -539,18 +539,17 @@ class Run_Reweighting(object):
         geo_stacked_groupby = self.reweighting_ds_obj.get_groupby(
             self.geo_stacked, self.sample_geo_names,
             self.adjust_household_ipf_config)
-        sample_weights_df = pd.DataFrame(index=geo_stacked_groupby.index)
 
         self.region_sample_weights = \
             pd.DataFrame(index=geo_stacked_groupby.index)
 
         for region_id in self.db.region_ids:
+            sample_weights_df = pd.DataFrame(index=geo_stacked_groupby.index)
             print ("\t%s for Region: %d" % (self.procedure, region_id))
             # print "\t\tConstraints sum:", geo_constraints.sum().sum()
 
 
             geo_ids = self.db.get_geo_ids_for_region(region_id)
-
             for index, geo_id in enumerate(geo_ids):
                 # print ("\t\t\tGeo: %s " % geo_id)
                 # print geo_constraints.loc[geo_id]
@@ -599,7 +598,10 @@ class Run_Reweighting(object):
 
                 # raw_input("Check results")
             self._populate_sample_weights(sample_weights_df.values, region_id, geo_ids)
+        # print self.region_sample_weights.head()
         print "\t\tSample_weights sum after household adjustment:", self.region_sample_weights.sum().sum()
+        # raw_input("check region sample weights ... ")
+
         # raise Exception
 
     def run_reweighting(self, region_constraints,
@@ -753,21 +755,42 @@ class Run_Reweighting(object):
                     #       """constraint {1} in iter {2} """
                     #       """is zero so don't adjust""".format(
                     #            column, constraints[column], i))
-                    continue
+                    # print ("Weighted sum is zero for column: {0}".format(column))
+                    weighted_sum = np.finfo(np.float64).tiny
 
                 adjustment = constraints[column]/weighted_sum
-                # t = time.time()
+
+                if np.isinf(adjustment):
+                    adjustment = np.finfo(np.float64).max
+
                 sample_weights[row_idx[column]] *= adjustment
+
+                check_if_inf = np.isinf(sample_weights[row_idx[column]])
+                if geo is False:
+                    count_of_inf = check_if_inf.sum().sum()
+                else:
+                    count_of_inf = check_if_inf.sum()
+                if count_of_inf > 0:
+                    # print "\t\tfor constraint: {0} nan values are: {1}".format(
+                    #    column, sample_weights[check_if_nan])
+                    # raw_input("Before correction")
+                    check_if_inf_full = np.isinf(sample_weights)
+                    sample_weights[check_if_inf_full] = np.finfo(np.float64).max
+                    # print "\t\tafter correction", sample_weights[check_if_nan]
+                    # raw_input("After correction")
+
+
                 # t_slicing += (time.time() - t)
         # print "\t\t\t\tWeighted sum for one round of inner iters takes %.4f" %(t_weighted_sum)
         # print "\t\t\t\tWeighted sum 2 for one round of inner iters takes %.4f" %(t_weighted_sum2)
         # print "\t\t\t\tSlicing for one round of inner iters takes %.4f" %(t_slicing)
+                """
                 if np.isnan(sample_weights).any():
                     print sample_weights
                     print ("Adjusting wrt {0} and constraint is: {1} and adjustment is: {2}".format(
                         column, constraints[column], adjustment))
                     raw_input()
-
+                """
                 # if column == 'person_dummy':
                 #    print "AFTER adjusting wrt person_dummy"
                 #    self._print_calculate_average_deviation(
